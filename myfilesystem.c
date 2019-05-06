@@ -67,7 +67,6 @@ bool check_gap_after(meta* item, meta* all, size_t length, int total){
 }
 
 meta* find_gap(size_t length, help * h, FILE* dtable){
-    unsigned long m = sizeof(meta);
     const int count = h->count;
     meta* after = NULL;
     for(int i = 0; i < count; i++){
@@ -114,6 +113,7 @@ int resize_file(char * filename, size_t length, void * helper) {
     if(1){
 
     }
+    return 0;
 }
 
 void repack(void * helper) {
