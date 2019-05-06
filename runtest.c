@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #define TEST(x) test(x, #x)
-#include "myfilesystem.h"
+#include "myfilesystem.c"
 
 /* You are free to modify any part of this file. The only requirement is that when it is run, all your tests are automatically executed */
 
@@ -19,6 +19,14 @@ int no_operation() {
     close_fs(helper);
     return 0;
 }
+
+int create_fil(){
+    void * helper = init_fs("a", "b", "c", 1);
+    create_file("large_penis.txt", 200, helper);
+    close_fs(helper);
+    return 0;
+}
+
 /****************************/
 
 /* Helper function */
@@ -35,10 +43,10 @@ void test(int (*test_function) (), char * function_name) {
 int main(int argc, char * argv[]) {
     
     // You can use the TEST macro as TEST(x) to run a test function named "x"
-    TEST(success);
-    TEST(failure);
-    TEST(no_operation);
-
+    //TEST(success);
+    //TEST(failure);
+    //TEST(no_operation);
+    TEST(create_fil);
     // Add more tests here
 
     return 0;
