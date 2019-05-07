@@ -45,8 +45,8 @@ int main(int argc, char * argv[]) {
     // You can use the TEST macro as TEST(x) to run a test function named "x"
     //TEST(success);
     //TEST(failure);
-    //TEST(no_operation);
-    TEST(create_fil);
+    TEST(no_operation);
+    //TEST(create_fil);
     // Add more tests here
 
     return 0;

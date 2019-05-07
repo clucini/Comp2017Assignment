@@ -24,9 +24,9 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     help* h = (help*)malloc(sizeof(help));
 
     h->file_ptrs[0] = fopen(file_data, "wb+");
-    h->file_ptrs[1] = fopen(directory_table, "rb+");
+    h->file_ptrs[1] = fopen(directory_table, "wb+");
     h->file_ptrs[2] = fopen(hash_data, "wb+");
-
+ 
     h->n_processors = n_processors;
     fseek(h->file_ptrs[1], 0, SEEK_END);
     h->count = ftell(h->file_ptrs[1])/sizeof(meta);
@@ -36,10 +36,8 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     void * space = calloc(h->count, sizeof(meta));
     fread(space, sizeof(meta), h->count, h->file_ptrs[1]);
 
-    printf("%s", ((meta *)space)->name);
 
     h->files = ((meta*)space);
-    printf("%s", (h->files+1)->name);
 
     return h;
 }
@@ -79,6 +77,15 @@ meta* find_gap(size_t length, help * h, FILE* dtable){
     return after;
 }
 
+meta* find_file(char * name, help * h){
+    for(int i = 0; i < h->count; i++) {
+        if((h->files + i) ->name == name){
+            return h->files + i;
+        }
+    }
+    return NULL;
+}
+
 int create_file(char * filename, size_t length, void * helper) {
     help* h = (help*)helper;
     FILE* dtable = h->file_ptrs[1];
@@ -110,8 +117,16 @@ int create_file(char * filename, size_t length, void * helper) {
 
 
 int resize_file(char * filename, size_t length, void * helper) {
-    if(1){
-
+    help * h = (help *)helper;
+    meta * f = find_file(filename, h);
+    if(f == NULL){
+        return 0;
+    }
+    if(check_gap_after(f, h->files, length, h->count)){
+        f->length = length;
+    }
+    else {
+        //todo repack etc..
     }
     return 0;
 }
