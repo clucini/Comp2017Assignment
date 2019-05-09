@@ -21,9 +21,8 @@ int no_operation() {
 }
 
 int create_fil(){
-    void * helper = init_fs("a", "b", "c", 1);
-    create_file("large_penis.txt", 200, helper);
-    close_fs(helper);
+    void * helper = init_fs("before/06_file_data", "before/09_directory_table", "before/06_hash_data", 4);
+    repack(helper);
     return 0;
 }
 
@@ -45,8 +44,8 @@ int main(int argc, char * argv[]) {
     // You can use the TEST macro as TEST(x) to run a test function named "x"
     //TEST(success);
     //TEST(failure);
-    TEST(no_operation);
-    //TEST(create_fil);
+    //TEST(no_operation);
+    TEST(create_fil);
     // Add more tests here
 
     return 0;

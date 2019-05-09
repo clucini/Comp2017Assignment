@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include "myfilesystem.h"
-
+#include <math.h>
+#define BLOCK_SIZE 256
 
 typedef struct metaData{
     char name[64];
@@ -17,47 +18,79 @@ typedef struct Helper {
     int n_processors;
     int count;
     meta* files;
+    int fsize;
 
 } help;
+
+void print_file(help * h){
+    for(int i = 0; i < h->count; i++) {
+        meta * cur = (h->files) + i;
+        printf("%s, %d, %d \n", cur->name, cur->offset, cur->length);
+    }
+}
 
 void * init_fs(char * file_data, char * directory_table, char * hash_data, int n_processors) {
     help* h = (help*)malloc(sizeof(help));
 
-    h->file_ptrs[0] = fopen(file_data, "wb+");
-    h->file_ptrs[1] = fopen(directory_table, "wb+");
-    h->file_ptrs[2] = fopen(hash_data, "wb+");
+    h->file_ptrs[0] = fopen(file_data, "rb+");
+    h->file_ptrs[1] = fopen(directory_table, "rb+");
+    h->file_ptrs[2] = fopen(hash_data, "rb+");
  
     h->n_processors = n_processors;
     fseek(h->file_ptrs[1], 0, SEEK_END);
     h->count = ftell(h->file_ptrs[1])/sizeof(meta);
-    fseek(h->file_ptrs[1], 0, 0);
+
+    unsigned int v = ftell(h->file_ptrs[1]);
+
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+
+    h->fsize = v;
+
+    fseek(h->file_ptrs[1], 0, SEEK_SET);
 
 
     void * space = calloc(h->count, sizeof(meta));
     fread(space, sizeof(meta), h->count, h->file_ptrs[1]);
 
-
     h->files = ((meta*)space);
+
+    if(0){
+        print_file(h);
+    }    
+
 
     return h;
 }
+
 
 void close_fs(void * hv) {
     help* h = (help*)hv;
     fclose(h->file_ptrs[0]);
     fclose(h->file_ptrs[1]);
     fclose(h->file_ptrs[2]);
-    //free(h->files);
+    free(h->files);
     free(h);
     return;
 }
 
-bool check_gap_after(meta* item, meta* all, size_t length, int total){
-    for(int f = 0; f < total; f++){
-        meta* incur = all + f;
-        if (incur == item|| item->offset < incur->offset)
+bool check_gap_after(meta* item, help * h, size_t length){
+    for(int f = 0; f < h->count; f++){
+        meta* incur = h->files + f;
+        if((item->offset + length) > h->fsize){
+            return false;
+        }
+        if (incur == item || item->offset > incur->offset)
             continue;
-        if (incur->offset - (item->offset + item->length) < length){
+        if(incur->name[0] == '\0'){
+            continue;
+        }
+        if ((int)(incur->offset - (item->offset + item->length)) < (int)length){
             return false;
         }
     }
@@ -69,47 +102,68 @@ meta* find_gap(size_t length, help * h, FILE* dtable){
     meta* after = NULL;
     for(int i = 0; i < count; i++){
         meta* cur = (h->files + i);
-        if (check_gap_after(cur, h->files, length, count)){
-            after = cur;
-            break;
+        /*if((h->files + i)->name[0] == '\0'){
+            printf("gae");
+            continue;
+        }*/
+        if (check_gap_after(cur, h, length)){
+            return cur;
         }
     }
     return after;
 }
 
-meta* find_file(char * name, help * h){
+int find_first_empty(help * h){
+    for(int i = 0; i < h->count; i++){
+        if((h->files + i)->name[0] == '\0') {
+            return i;
+        }   
+    }
+    return -1;    
+}
+
+int find_file(char * name, help * h){
     for(int i = 0; i < h->count; i++) {
-        if((h->files + i) ->name == name){
-            return h->files + i;
+        if(strcmp((h->files + i) ->name, name)==0){
+            return i;
         }
     }
-    return NULL;
+    return -1;
 }
 
 int create_file(char * filename, size_t length, void * helper) {
     help* h = (help*)helper;
     FILE* dtable = h->file_ptrs[1];
 
+    if(find_file(filename, h) != -1){
+        return 1;
+    }
+
     meta* new = (meta*)malloc(sizeof(meta));
 
     unsigned int noffset = 0; 
     if(h->count != 0) {
         meta* after = find_gap(length, helper, dtable);
-        noffset = after->offset + after->length;
-        printf("yeet");
         if(after == NULL) {
         }
         else { 
+            noffset = after->offset + after->length;
         }
     }
+    int placement = find_first_empty(h);
+
     strncpy(new->name, filename,64);
     new->length = length;
     new->offset = noffset;
-    fseek(dtable, 0, noffset);
+    fseek(dtable, 0, placement * sizeof(meta));
 
     fwrite(new, sizeof(meta), 1, dtable);
 
-    fclose(dtable);
+    h->count++;
+
+    h->files = realloc(h->files, h->count * sizeof(meta));
+
+    free(new);
 
     return 0;
 }
@@ -118,41 +172,125 @@ int create_file(char * filename, size_t length, void * helper) {
 
 int resize_file(char * filename, size_t length, void * helper) {
     help * h = (help *)helper;
-    meta * f = find_file(filename, h);
-    if(f == NULL){
+    int x = find_file(filename, h);
+    if(x == -1)
         return 0;
-    }
-    if(check_gap_after(f, h->files, length, h->count)){
+    meta * f = (h->files + x);
+    if(length < f->length){    
         f->length = length;
+        fseek((h->file_ptrs[1]), 0, x * sizeof(meta));
+        fwrite(f, sizeof(meta), 1, h->file_ptrs[1]);
+    }
+    else if(check_gap_after(f, h, length)){
+        f->length = length;
+        fseek((h->file_ptrs[1]), 0, x * sizeof(meta));
+        fwrite(f, sizeof(meta), 1, h->file_ptrs[1]);
     }
     else {
-        //todo repack etc..
+        return 2;
     }
     return 0;
 }
 
+meta * find_next(meta* cur, help * h){
+    int o = -1;
+    int l = INT32_MAX;
+    meta * best = NULL;
+    if(cur)
+        o = cur->offset+cur->length;
+    
+    for(int i = 0; i < h->count; i++) {
+        meta* incur = h->files + i;
+        if(incur->name[0] == '\0' || incur == cur) {
+            continue;
+        }
+        if(incur->offset < l && (int)incur->offset > (int)o) {
+            l = incur->offset;
+            best = incur;
+        }
+    }
+    return best;
+}
+
 void repack(void * helper) {
-    return;
+    help * h = (help *)helper;
+    meta * next = find_next(NULL, h);
+    int cur = 0;
+    while(next) {
+        fseek((h->file_ptrs[0]), next->offset, SEEK_SET);
+        next = find_next(next, h);
+    }
+
 }
 
 int delete_file(char * filename, void * helper) {
+    help * h = (help *)helper;
+    int x = find_file(filename, h);
+    if(x==-1){
+        return 1;
+    }
+    (h->files + x)->name[0] = '\0';
+    fseek((h->file_ptrs[1]), x * sizeof(meta), SEEK_SET);
+    fputc('\0', h->file_ptrs[1]);
     return 0;
 }
 
 int rename_file(char * oldname, char * newname, void * helper) {
+    help * h = (help *)helper;
+    int x = find_file(oldname, h);
+    if(x==-1 || find_file(newname, h) != -1)
+        return 1;
+    meta * f = h->files + x;
+    
+    strncpy(f->name, newname, 64);
+    fseek((h->file_ptrs[1]), x * sizeof(meta), SEEK_SET);
+    fwrite(f, sizeof(meta), 1, h->file_ptrs[1]);
     return 0;
 }
 
 int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
+    help * h = (help *)helper;
+    int x = find_file(filename, h);
+    if(x==-1)
+        return 1;
+        
+    meta * f = h->files + x;
+    
+    if(offset+count > f->length)
+        return 2;
+
+    fseek((h->file_ptrs[0]), f->offset + offset, SEEK_SET);
+    fread(buf, 1, count, (h->file_ptrs[0]));
     return 0;
 }
 
 int write_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
+    help * h = (help *)helper;
+    int x = find_file(filename, h);
+    if(x==-1)
+        return 1;
+        
+    meta * f = h->files + x;
+    
+    if(offset > f->length)
+        return 2;
+
+    if(offset+count > f->length)
+        if(resize_file(filename, offset + count, helper) == 2)
+            return 3;
+    
+    fseek((h->file_ptrs[0]), f->offset + offset, SEEK_SET);
+    fwrite(buf, 1, count, h->file_ptrs[0]);
     return 0;
 }
 
 ssize_t file_size(char * filename, void * helper) {
-    return 0;
+    help * h = (help *)helper;
+    int x = find_file(filename, h);
+    if(x==-1)
+        return -1;
+    meta * f = h->files + x;
+    return f->length;
 }
 
 void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
