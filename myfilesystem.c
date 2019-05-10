@@ -214,13 +214,21 @@ meta * find_next(meta* cur, help * h){
 
 void repack(void * helper) {
     help * h = (help *)helper;
-    meta * next = find_next(NULL, h);
+    meta * curn = find_next(NULL, h);
     int cur = 0;
-    while(next) {
-        fseek((h->file_ptrs[0]), next->offset, SEEK_SET);
-        next = find_next(next, h);
+    while(curn) {
+        void * storage = malloc(curn->length);
+        fseek(h->file_ptrs[0], curn->offset, SEEK_SET);
+        fread(storage, curn->length, 1, h->file_ptrs[0]);
+        fseek(h->file_ptrs[0], cur, SEEK_SET);
+        fwrite(storage, curn->length, 1, h->file_ptrs[0]);
+        free(storage);
+        curn->offset = cur;
+        fseek((h->file_ptrs[1]), find_file(curn->name, h) * sizeof(meta), SEEK_SET);
+        fwrite(curn, sizeof(meta), 1, h->file_ptrs[1]);
+        cur = curn->offset + curn->length;
+        curn = find_next(curn, h);
     }
-
 }
 
 int delete_file(char * filename, void * helper) {

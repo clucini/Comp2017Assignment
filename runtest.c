@@ -21,9 +21,9 @@ int no_operation() {
 }
 
 int create_fil(){
-    void * helper = init_fs("before/06_file_data", "before/09_directory_table", "before/06_hash_data", 4);
-    repack(helper);
-    return 0;
+   void * helper = init_fs("before/16_file_data", "before/16_directory_table", "before/16_hash_data", 4);
+   repack(helper); 
+   close_fs(helper);
 }
 
 /****************************/
