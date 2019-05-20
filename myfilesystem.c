@@ -6,6 +6,8 @@
 #include "myfilesystem.h"
 #include <math.h>
 #define BLOCK_SIZE 256
+#define concat(a,b) a##b
+
 
 typedef struct metaData{
     char name[64];
@@ -102,10 +104,6 @@ meta* find_gap(size_t length, help * h, FILE* dtable){
     meta* after = NULL;
     for(int i = 0; i < count; i++){
         meta* cur = (h->files + i);
-        /*if((h->files + i)->name[0] == '\0'){
-            printf("gae");
-            continue;
-        }*/
         if (check_gap_after(cur, h, length)){
             return cur;
         }
@@ -302,8 +300,40 @@ ssize_t file_size(char * filename, void * helper) {
 }
 
 void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
-    return;
+    uint64_t ints[4] = {0};
+
+    for(int i = 0; i < length; i++) {
+        ints[0] = (ints[0] + (*(uint32_t*)buf + i)) % ((2^32)-1);
+        ints[1] = (ints[1] + ints[0]) % ((2^32)-1);
+        ints[2] = (ints[2] + ints[1]) % ((2^32)-1);
+        ints[3] = (ints[3] + ints[2]) % ((2^32)-1);
+    }
+    
+    uint8_t hash_value[16];
+
+    for(int i = 0; i < 4; i++) {
+        for(int f = 0; f < 4; f++) {
+            hash_value[i * 4 + f] = ((uint8_t*)ints[i])[f + 3];
+        }
+    }
+    printf("%d", hash_value[0]);
+
 }
+
+/*
+function fletcher_hash(uint32_t * data, length): //Consider data 4 bytes at a time
+    uint32_t a = 0; //Treat 4 byte blocks as little-endian integers
+    uint32_t b = 0;
+    uint32_t c = 0;
+    uint32_t d = 0;
+    for i = 0 ... length-1:
+        a = (a + data[i]) mod 2^32-1;
+        b = (b + a) mod 2^32-1;
+        c = (c + b) mod 2^32-1;
+        d = (d + c) mod 2^32-1;
+    uint8_t hash_value[16] = concatenate a, b, c, d //4x4 = 16 bytes in total
+    return hash_value
+*/
 
 void compute_hash_tree(void * helper) {
     return;
