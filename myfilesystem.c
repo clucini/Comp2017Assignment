@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <stdbool.h>
 #include <string.h>
@@ -25,6 +25,7 @@ typedef struct Helper {
 } help;
 
 void print_file(help * h){
+    printf("Size: %d, Count: %d \n", h->fsize, h->count);
     for(int i = 0; i < h->count; i++) {
         meta * cur = (h->files) + i;
         printf("%s, %d, %d \n", cur->name, cur->offset, cur->length);
@@ -66,7 +67,6 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
         print_file(h);
     }    
 
-
     return h;
 }
 
@@ -81,48 +81,64 @@ void close_fs(void * hv) {
     return;
 }
 
-bool check_gap_after(meta* item, help * h, size_t length){
+
+size_t check_gap_after(meta* item, help * h){
+    size_t s = h->fsize - item->offset;
     for(int f = 0; f < h->count; f++){
         meta* incur = h->files + f;
-        if((item->offset + length) > h->fsize){
-            return false;
-        }
         if (incur == item || item->offset > incur->offset)
             continue;
         if(incur->name[0] == '\0'){
             continue;
         }
-        if ((int)(incur->offset - (item->offset + item->length)) < (int)length){
-            return false;
+        if (incur->offset - (item->offset + item->length) < s){
+            s = incur->offset - (item->offset + item->length);
         }
     }
-    return true;
+    return s;
+}
+int get_free_space(help * h, meta * exclude){
+    int total = 0;
+    for(int i = 0; i < h->count; i++){
+        meta* cur = (h->files + i);
+        if(cur == exclude){
+            continue;
+        }
+        if((h->files + i)->name[0] == '\0') {
+            continue;
+        }
+        else{
+            total += check_gap_after(cur, h);
+        }
+    }
+    return total;
 }
 
-meta* find_gap(size_t length, help * h, FILE* dtable){
+meta* find_gap(size_t length, help * h, FILE* dtable) {
     const int count = h->count;
     meta* after = NULL;
     for(int i = 0; i < count; i++){
         meta* cur = (h->files + i);
-        if (check_gap_after(cur, h, length)){
+        if (check_gap_after(cur, h) >= length){
             return cur;
         }
     }
     return after;
 }
 
-int find_first_empty(help * h){
-    for(int i = 0; i < h->count; i++){
-        if((h->files + i)->name[0] == '\0') {
+int find_first_empty(help * h) {
+    for(int i = 0; i < h->count; i++) {
+        meta * cur = (h->files + i);
+        if(cur->name[0] == '\0' || (cur->length == 0 && cur->offset == 0)){
             return i;
         }   
     }
-    return -1;    
+    return -1;
 }
 
-int find_file(char * name, help * h){
+int find_file(char * name, help * h) {
     for(int i = 0; i < h->count; i++) {
-        if(strcmp((h->files + i) ->name, name)==0){
+        if(strcmp((h->files + i) ->name, name)==0) {
             return i;
         }
     }
@@ -139,16 +155,26 @@ int create_file(char * filename, size_t length, void * helper) {
 
     meta* new = (meta*)malloc(sizeof(meta));
 
+    printf("%s, %ld asasdasd\n", filename, length);
+
     unsigned int noffset = 0; 
     if(h->count != 0) {
         meta* after = find_gap(length, helper, dtable);
+        print_file(h);
         if(after == NULL) {
+            if(get_free_space(h, NULL) >= length){
+                repack(helper);
+                meta* after = find_gap(length, helper, dtable);
+                noffset = after->offset + after->length;
+            }
         }
-        else { 
+        else {
             noffset = after->offset + after->length;
         }
     }
+
     int placement = find_first_empty(h);
+
 
     strncpy(new->name, filename,64);
     new->length = length;
@@ -157,16 +183,13 @@ int create_file(char * filename, size_t length, void * helper) {
 
     fwrite(new, sizeof(meta), 1, dtable);
 
-    h->count++;
-
-    h->files = realloc(h->files, h->count * sizeof(meta));
+    memcpy(h->files+placement, new, sizeof(meta));
 
     free(new);
+    print_file(h);
 
     return 0;
 }
-
-
 
 int resize_file(char * filename, size_t length, void * helper) {
     help * h = (help *)helper;
@@ -179,12 +202,18 @@ int resize_file(char * filename, size_t length, void * helper) {
         fseek((h->file_ptrs[1]), 0, x * sizeof(meta));
         fwrite(f, sizeof(meta), 1, h->file_ptrs[1]);
     }
-    else if(check_gap_after(f, h, length)){
+    else if(check_gap_after(f, h) >= length){
         f->length = length;
         fseek((h->file_ptrs[1]), 0, x * sizeof(meta));
         fwrite(f, sizeof(meta), 1, h->file_ptrs[1]);
     }
+    else if(get_free_space(h, f) >= length) {
+        f->length = length;
+
+        repack(h);
+    }
     else {
+        printf("%d", get_free_space(h, f));
         return 2;
     }
     return 0;
@@ -210,9 +239,13 @@ meta * find_next(meta* cur, help * h){
     return best;
 }
 
-void repack(void * helper) {
+void repack(void * helper, meta * end) {
     help * h = (help *)helper;
     meta * curn = find_next(NULL, h);
+    void * s = malloc(end->length);
+    fseek(h->file_ptrs[0], end->offset, SEEK_SET);
+    fread(s, curn->length, 1, h->file_ptrs[0]);
+
     int cur = 0;
     while(curn) {
         void * storage = malloc(curn->length);
@@ -226,7 +259,13 @@ void repack(void * helper) {
         fwrite(curn, sizeof(meta), 1, h->file_ptrs[1]);
         cur = curn->offset + curn->length;
         curn = find_next(curn, h);
+        if(curn = end){
+            curn = find_next(curn, h);
+        }
     }
+    fseek(h->file_ptrs[0], cur, SEEK_SET);
+    fwrite(s, curn->length, 1, h->file_ptrs[0]);
+        
 }
 
 int delete_file(char * filename, void * helper) {
@@ -301,9 +340,12 @@ ssize_t file_size(char * filename, void * helper) {
 
 void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
     uint64_t ints[4] = {0};
+    
+    uint32_t* b = (uint32_t*)buf;
 
-    for(int i = 0; i < length; i++) {
-        ints[0] = (ints[0] + (*(uint32_t*)buf + i)) % ((2^32)-1);
+    for(int i = 0; i < 1; ++i) {
+        printf("%n", b + i);
+        ints[0] = (ints[0] + (*b + i)) % ((2^32)-1);
         ints[1] = (ints[1] + ints[0]) % ((2^32)-1);
         ints[2] = (ints[2] + ints[1]) % ((2^32)-1);
         ints[3] = (ints[3] + ints[2]) % ((2^32)-1);
@@ -313,7 +355,7 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 
     for(int i = 0; i < 4; i++) {
         for(int f = 0; f < 4; f++) {
-            hash_value[i * 4 + f] = ((uint8_t*)ints[i])[f + 3];
+            hash_value[i * 4 + f] = ((uint8_t*)ints)[i * 4 + f + 3];
         }
     }
     printf("%d", hash_value[0]);

@@ -26,6 +26,17 @@ int create_fil(){
    close_fs(helper);
 }
 
+int test_hash(){
+    void * helper = init_fs("before/16_file_data", "before/16_directory_table", "before/16_hash_data", 4);
+    uint8_t * data = (uint8_t*)malloc(sizeof(uint8_t) * 8);
+    for(int i = 0; i < 8; i++){
+        *(data + i) = i * 10;
+    }
+    fletcher(data, 8, NULL);
+
+    close_fs(helper);
+}
+
 /****************************/
 
 /* Helper function */
@@ -39,13 +50,14 @@ void test(int (*test_function) (), char * function_name) {
 }
 /************************/
 
+
 int main(int argc, char * argv[]) {
     
     // You can use the TEST macro as TEST(x) to run a test function named "x"
     //TEST(success);
     //TEST(failure);
     //TEST(no_operation);
-    TEST(create_fil);
+    TEST(test_hash);
     // Add more tests here
 
     return 0;
