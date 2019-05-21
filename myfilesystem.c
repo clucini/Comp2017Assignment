@@ -87,9 +87,9 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
 
 void close_fs(void * hv) {
     help* h = (help*)hv;
-    //fclose(h->file_ptrs[0]);
-    //fclose(h->file_ptrs[2]);
-    //munmap(h->files, h->count*sizeof(meta));
+    fclose(h->file_ptrs[0]);
+    fclose(h->file_ptrs[2]);
+    munmap(h->files, h->count*sizeof(meta));
     free(h);
 }
 
@@ -168,11 +168,10 @@ int create_file(char * filename, size_t length, void * helper) {
         return 1;
     }
 
-
-
     unsigned int noffset = 0; 
     if(h->count != 0) {
         meta* after = find_gap(length, helper);
+        
         if(after == NULL) {
             if(get_free_space(h, NULL) >= length){
                 repack(helper);
@@ -181,12 +180,12 @@ int create_file(char * filename, size_t length, void * helper) {
             }
         }
         else {
+            printf("penis");
             noffset = after->offset + after->length;
         }
     }
 
     int placement = find_first_empty(h);
-
 
     meta* new = (meta*)malloc(sizeof(meta));
 
@@ -195,6 +194,8 @@ int create_file(char * filename, size_t length, void * helper) {
     new->offset = noffset;
 
     write_meta(new, placement, h);
+
+    print_file(h);
 
     free(new);
 
@@ -246,6 +247,7 @@ meta * find_next(meta* cur, help * h){
 }
 
 void repack(void * helper) {
+    printf("aaaaaaaaaaaaaaaaaaaaaaaa");
     help * h = (help *)helper;
     meta * curn = find_next(NULL, h);
     int cur = 0;
@@ -317,6 +319,7 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
     if(offset+count > f->length)
         if(resize_file(filename, offset + count, helper) == 2)
             return 3;
+
     
     fseek((h->file_ptrs[0]), f->offset + offset, SEEK_SET);
     fwrite(buf, 1, count, h->file_ptrs[0]);
