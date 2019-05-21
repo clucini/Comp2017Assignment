@@ -25,10 +25,10 @@ typedef struct metaData{
 
 typedef struct Helper {
     FILE* file_ptrs[3];
-    int dTable;
     int n_processors;
     int count;
     meta* files;
+    void* hash;
     int fsize;
 
 } help;
@@ -52,14 +52,15 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
 
     h->file_ptrs[0] = fopen(file_data, "rb+");
     int dTable = open(directory_table, O_RDWR, S_IRWXG);
-    h->file_ptrs[2] = fopen(hash_data, "rb+");
+    //int hashTable = open(hash_data, O_RDWR, S_IRWXG);
     
     h->n_processors = n_processors;
 
     struct stat st;
     stat(directory_table, &st);
-
     h->count = st.st_size/sizeof(meta);
+
+    h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, dTable, 0);
 
     unsigned int v = st.st_size;
 
@@ -73,11 +74,15 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
 
     h->fsize = v;
 
-    h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, dTable, 0);
+    stat(hash_data, &st);
+    
+    //h->hash = (void *)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, hashTable, 0);
+    
 
     close(dTable);
+    //close(hashTable);
     
-    if(0){
+    if(1){
         print_file(h);
     }    
 
@@ -88,8 +93,8 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
 void close_fs(void * hv) {
     help* h = (help*)hv;
     fclose(h->file_ptrs[0]);
-    fclose(h->file_ptrs[2]);
     munmap(h->files, h->count*sizeof(meta));
+    //munmap(h->hash)
     free(h);
 }
 
@@ -224,14 +229,23 @@ int resize_file(char * filename, size_t length, void * helper) {
         char t_letter = f->name[0];
         read_file(f->name, 0, f->length, temp, helper);
         delete_file(f->name, helper);
+        void * empty = calloc(1, f->length);
+        fseek(h->file_ptrs[0], f->offset, SEEK_SET);
+        fwrite(empty, f->length, 1, h->file_ptrs[0]);
+        free(empty);
         repack(h);
         f->name[0] = t_letter;
-        write_file(f->name, 0, f->length, temp,)
+        meta * after = find_gap(f->length, h);
+        f->offset = after->offset + after->length;
+        write_file(f->name, 0, f->length, temp, helper);
+        free(temp);
+        print_file(h);
     }
     else {
         return 2;
     }
     return 0;
+
 }
 
 meta * find_next(meta* cur, help * h){
@@ -262,6 +276,12 @@ void repack(void * helper) {
         void * storage = malloc(curn->length);
         fseek(h->file_ptrs[0], curn->offset, SEEK_SET);
         fread(storage, curn->length, 1, h->file_ptrs[0]);
+        
+        void * empty = calloc(1, curn->length);
+        fseek(h->file_ptrs[0], curn->offset, SEEK_SET);
+        fwrite(empty, curn->length, 1, h->file_ptrs[0]);
+        free(empty);
+
         fseek(h->file_ptrs[0], cur, SEEK_SET);
         fwrite(storage, curn->length, 1, h->file_ptrs[0]);
         free(storage);
