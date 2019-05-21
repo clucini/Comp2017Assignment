@@ -21,9 +21,12 @@ int no_operation() {
 }
 
 int create_fil(){
-   void * helper = init_fs("before/16_file_data", "before/16_directory_table", "before/16_hash_data", 4);
-   repack(helper); 
-   close_fs(helper);
+    void * helper = init_fs("before/12_file_data", "before/12_directory_table", "before/12_hash_data", 4);
+    char buf[] = "tests";
+    int ret = write_file("file1.txt", 160, 50, buf, helper);
+    ret = write_file("file1.txt", 16, 5, buf, helper);
+    close_fs(helper);
+
 }
 
 int test_hash(){
@@ -57,7 +60,7 @@ int main(int argc, char * argv[]) {
     //TEST(success);
     //TEST(failure);
     //TEST(no_operation);
-    TEST(test_hash);
+    TEST(create_fil);
     // Add more tests here
 
     return 0;
