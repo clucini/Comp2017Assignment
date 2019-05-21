@@ -170,8 +170,8 @@ int create_file(char * filename, size_t length, void * helper) {
 
     unsigned int noffset = 0; 
     if(h->count != 0) {
+        //repack(helper);
         meta* after = find_gap(length, helper);
-        
         if(after == NULL) {
             if(get_free_space(h, NULL) >= length){
                 repack(helper);
@@ -180,7 +180,6 @@ int create_file(char * filename, size_t length, void * helper) {
             }
         }
         else {
-            printf("penis");
             noffset = after->offset + after->length;
         }
     }
@@ -188,15 +187,18 @@ int create_file(char * filename, size_t length, void * helper) {
     int placement = find_first_empty(h);
 
     meta* new = (meta*)malloc(sizeof(meta));
-
+        
     strncpy(new->name, filename, 64);
     new->length = length;
     new->offset = noffset;
 
+
+    void * empty = calloc(1, new->length);
+
     write_meta(new, placement, h);
+    write_file(new->name, 0, new->length, empty, helper);
 
-    print_file(h);
-
+    free(empty);
     free(new);
 
     return 0;
@@ -218,7 +220,13 @@ int resize_file(char * filename, size_t length, void * helper) {
     }
     else if(get_free_space(h, f) >= length) {
         f->length = length;
+        void * temp = malloc(f->length);
+        char t_letter = f->name[0];
+        read_file(f->name, 0, f->length, temp, helper);
+        delete_file(f->name, helper);
         repack(h);
+        f->name[0] = t_letter;
+        write_file(f->name, 0, f->length, temp,)
     }
     else {
         return 2;
@@ -247,7 +255,6 @@ meta * find_next(meta* cur, help * h){
 }
 
 void repack(void * helper) {
-    printf("aaaaaaaaaaaaaaaaaaaaaaaa");
     help * h = (help *)helper;
     meta * curn = find_next(NULL, h);
     int cur = 0;
