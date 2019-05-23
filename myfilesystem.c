@@ -65,14 +65,6 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
 
     int v = st.st_size;
 
- /*   v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v++;
-*/
     h->fsize = v;
 
     stat(hash_data, &st);
@@ -83,7 +75,7 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     close(dTable);
     //close(hashTable);
     
-    if(1){
+    if(0){
         print_file(h);
     }    
 
@@ -101,7 +93,7 @@ void close_fs(void * hv) {
 
 
 size_t check_gap_after(meta* item, help * h){
-    size_t s = h->fsize - item->offset;
+    size_t s = h->fsize - (item->offset + item->length);
     for(int f = 0; f < h->count; f++){
         meta* incur = h->files + f;
         if (incur == item || item->offset > incur->offset)
@@ -121,7 +113,7 @@ int get_free_space(help * h, meta * exclude){
     for(int i = 0; i < h->count; i++){
         meta* cur = (h->files + i);
         if(cur == exclude){
-            if(exclude->offset == 0){
+            if(exclude->offset == 0 || check_gap_after(exclude, h) + exclude->length + exclude->offset == h->fsize){
                 total += check_gap_after(exclude, h) + exclude->length;
             }
             else {
@@ -143,6 +135,9 @@ meta* find_gap(size_t length, help * h) {
     meta* after = NULL;
     for(int i = 0; i < count; i++){
         meta* cur = (h->files + i);
+        if(cur->name[0] == '\0') {
+            continue;
+        }
         if (check_gap_after(cur, h) >= length){
             return cur;
         }
@@ -217,38 +212,46 @@ int create_file(char * filename, size_t length, void * helper) {
     return 0;
 }
 
+void remove_repack_replace(meta* f, size_t length, void * helper){
+    help* h = (help*)helper;
+    void * temp = calloc(length, 1);
+    char t_letter = f->name[0];
+
+    read_file(f->name, 0, f->length, temp, helper);
+
+    void * empty = calloc(1, f->length);
+    write_file(f->name, 0, f->length, empty, helper);
+    free(empty);
+    delete_file(f->name, helper);
+
+    repack(h);
+
+    f->length = length;
+    meta * after = find_gap(f->length, h);
+    f->name[0] = t_letter;
+    f->offset = after->offset + after->length;
+    
+    write_file(f->name, 0, f->length, temp, helper);
+    free(temp);
+}
+
 int resize_file(char * filename, size_t length, void * helper) {
     help * h = (help *)helper;
     int x = find_file(filename, h);
     if(x == -1)
         return 0;
+
     meta * f = (h->files + x);
-    printf("%s, %ld, %d \n", filename, length, get_free_space(h, f));
     if(length < f->length) {
         f->length = length;
         write_meta(f, x, h);
     }
-    else if(check_gap_after(f, h) >= length){
+    else if(check_gap_after(f, h) + f->length >= length){
         f->length = length;
         write_meta(f, x, h);
     }
     else if(get_free_space(h, f) >= length) {
-        f->length = length;
-        void * temp = malloc(f->length);
-        char t_letter = f->name[0];
-        read_file(f->name, 0, f->length, temp, helper);
-        delete_file(f->name, helper);
-        void * empty = calloc(1, f->length);
-        fseek(h->file_ptrs[0], f->offset, SEEK_SET);
-        fwrite(empty, f->length, 1, h->file_ptrs[0]);
-        free(empty);
-        repack(h);
-        f->name[0] = t_letter;
-        meta * after = find_gap(f->length, h);
-        f->offset = after->offset + after->length;
-        write_file(f->name, 0, f->length, temp, helper);
-        free(temp);
-        print_file(h);
+        remove_repack_replace(f, length, helper);
     }
     else {
         return 2;
@@ -283,19 +286,17 @@ void repack(void * helper) {
     int cur = 0;
     while(curn) {
         void * storage = malloc(curn->length);
-        fseek(h->file_ptrs[0], curn->offset, SEEK_SET);
-        fread(storage, curn->length, 1, h->file_ptrs[0]);
+        read_file(curn->name, 0, curn->length, storage, helper);
         
         void * empty = calloc(1, curn->length);
-        fseek(h->file_ptrs[0], curn->offset, SEEK_SET);
-        fwrite(empty, curn->length, 1, h->file_ptrs[0]);
+        write_file(curn->name, 0, curn->length, empty, helper);
         free(empty);
 
-        fseek(h->file_ptrs[0], cur, SEEK_SET);
-        fwrite(storage, curn->length, 1, h->file_ptrs[0]);
+        curn->offset = cur;
+
+        write_file(curn->name, 0, curn->length, storage, helper);
         free(storage);
         
-        curn->offset = cur;
         write_meta(curn, find_file(curn->name, h), h);
         
         cur = curn->offset + curn->length;
@@ -346,19 +347,23 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
     int x = find_file(filename, h);
     if(x==-1)
         return 1;
-        
+
+
     meta * f = h->files + x;
     
     if(offset > f->length)
         return 2;
 
-    if(offset+count > f->length)
-        if(resize_file(filename, offset + count, helper) == 2)
+    if(offset+count > f->length){
+        if(get_free_space(h, NULL) < count)
             return 3;
-
+        else{
+            remove_repack_replace(f, count, helper);
+        }
+    }
     
     fseek((h->file_ptrs[0]), f->offset + offset, SEEK_SET);
-    fwrite(buf, 1, count, h->file_ptrs[0]);
+    fwrite(buf, count, 1, h->file_ptrs[0]);
     return 0;
 }
 
