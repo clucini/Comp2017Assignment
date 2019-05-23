@@ -61,17 +61,18 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     h->count = st.st_size/sizeof(meta);
 
     h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, dTable, 0);
+    stat(file_data, &st);
 
-    unsigned int v = st.st_size;
+    int v = st.st_size;
 
-    v--;
+ /*   v--;
     v |= v >> 1;
     v |= v >> 2;
     v |= v >> 4;
     v |= v >> 8;
     v |= v >> 16;
     v++;
-
+*/
     h->fsize = v;
 
     stat(hash_data, &st);
@@ -114,17 +115,23 @@ size_t check_gap_after(meta* item, help * h){
     }
     return s;
 }
+
 int get_free_space(help * h, meta * exclude){
     int total = 0;
     for(int i = 0; i < h->count; i++){
         meta* cur = (h->files + i);
         if(cur == exclude){
+            if(exclude->offset == 0){
+                total += check_gap_after(exclude, h) + exclude->length;
+            }
+            else {
+                continue;
+            }
+        }
+        else if((h->files + i)->name[0] == '\0') {
             continue;
         }
-        if((h->files + i)->name[0] == '\0') {
-            continue;
-        }
-        else{
+        else {
             total += check_gap_after(cur, h);
         }
     }
@@ -175,7 +182,6 @@ int create_file(char * filename, size_t length, void * helper) {
 
     unsigned int noffset = 0; 
     if(h->count != 0) {
-        //repack(helper);
         meta* after = find_gap(length, helper);
         if(after == NULL) {
             if(get_free_space(h, NULL) >= length){
@@ -201,6 +207,8 @@ int create_file(char * filename, size_t length, void * helper) {
     void * empty = calloc(1, new->length);
 
     write_meta(new, placement, h);
+    
+    
     write_file(new->name, 0, new->length, empty, helper);
 
     free(empty);
@@ -215,7 +223,8 @@ int resize_file(char * filename, size_t length, void * helper) {
     if(x == -1)
         return 0;
     meta * f = (h->files + x);
-    if(length < f->length){    
+    printf("%s, %ld, %d \n", filename, length, get_free_space(h, f));
+    if(length < f->length) {
         f->length = length;
         write_meta(f, x, h);
     }
