@@ -35,7 +35,7 @@ int test_hash(){
     for(int i = 0; i < 8; i++){
         *(data + i) = i * 10;
     }
-    fletcher(data, 8, NULL);
+    fletcher(data, 20, NULL);
 
     close_fs(helper);
 }
@@ -60,7 +60,7 @@ int main(int argc, char * argv[]) {
     //TEST(success);
     //TEST(failure);
     //TEST(no_operation);
-    TEST(create_fil);
+    TEST(test_hash);
     // Add more tests here
 
     return 0;

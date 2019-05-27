@@ -10,11 +10,14 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <pthread.h>
 
 
 
 #define BLOCK_SIZE 256
 #define concat(a,b) a##b
+
+pthread_mutex_t lock; 
 
 
 typedef struct metaData{
@@ -24,12 +27,15 @@ typedef struct metaData{
 } meta;
 
 typedef struct Helper {
-    FILE* file_ptrs[3];
+    void* file_data;
     int n_processors;
     int count;
     meta* files;
-    void* hash;
+    uint8_t* hash_table;
     int fsize;
+    int count_hash_blocks;
+    int hash_k;
+    size_t h_size;
 
 } help;
 
@@ -49,32 +55,44 @@ void print_file(help * h){
 
 void * init_fs(char * file_data, char * directory_table, char * hash_data, int n_processors) {
     help* h = (help*)malloc(sizeof(help));
-
-    h->file_ptrs[0] = fopen(file_data, "rb+");
-    int dTable = open(directory_table, O_RDWR, S_IRWXG);
-    //int hashTable = open(hash_data, O_RDWR, S_IRWXG);
-    
+    struct stat st;
     h->n_processors = n_processors;
 
-    struct stat st;
+    
+    int dTable = open(directory_table, O_RDWR, S_IRWXG);
     stat(directory_table, &st);
+    h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, dTable, 0);
+    
     h->count = st.st_size/sizeof(meta);
 
-    h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, dTable, 0);
+    
+    int fileData = open(file_data, O_RDWR, S_IRWXG);
     stat(file_data, &st);
+    h->file_data = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fileData, 0);
+    
+    h->count_hash_blocks = st.st_size / 256;
+    h->fsize = st.st_size;
 
-    int v = st.st_size;
-
-    h->fsize = v;
-
+    
+    
+    int hashTable = open(hash_data, O_RDWR, S_IRWXG);
     stat(hash_data, &st);
+    h->hash_table = (uint8_t *)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, hashTable, 0);
     
-    //h->hash = (void *)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, hashTable, 0);
+    h->h_size = st.st_size;
+    int count = h->count_hash_blocks;
+    h->hash_k = 0;
+    while(count > 1){
+        h->hash_k++;
+        count = count / 2;
+    }
     
-
     close(dTable);
-    //close(hashTable);
-    
+    close(hashTable);
+    close(fileData);
+
+    pthread_mutex_init(&lock, NULL);
+    //compute_hash_tree((void*)h);
     if(0){
         print_file(h);
     }    
@@ -85,9 +103,10 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
 
 void close_fs(void * hv) {
     help* h = (help*)hv;
-    fclose(h->file_ptrs[0]);
     munmap(h->files, h->count*sizeof(meta));
-    //munmap(h->hash)
+    munmap(h->hash_table, h->h_size);
+    munmap(h->file_data, h->fsize);
+    pthread_mutex_destroy(&lock);
     free(h);
 }
 
@@ -130,9 +149,38 @@ int get_free_space(help * h, meta * exclude){
     return total;
 }
 
+int get_zero(help * h){
+    for(int i = 0; i < h->count; i++){
+        if((h->files + i)->offset == 0 && (h->files + i)->name[0] != '\0')
+            return 1;
+    }
+    return 0;
+}
+
+
+
+int find_first_empty(help * h) {
+    for(int i = 0; i < h->count; i++) {
+        meta * cur = (h->files + i);
+        if(cur->name[0] == '\0' || (cur->length == 0 && cur->offset == 0)){
+            return i;
+        }   
+    }
+    return -1;
+}
+
 meta* find_gap(size_t length, help * h) {
     const int count = h->count;
     meta* after = NULL;
+    if(get_zero(h) == 0){
+        int tmp = find_first_empty(h);
+        (h->files + tmp)->name[0] = 't';
+        int score = check_gap_after((h->files + tmp), h);
+        (h->files + tmp)->name[0] = '\0';
+        if(score >= length){
+            return (h->files + tmp);
+        }   
+    }
     for(int i = 0; i < count; i++){
         meta* cur = (h->files + i);
         if(cur->name[0] == '\0') {
@@ -143,16 +191,6 @@ meta* find_gap(size_t length, help * h) {
         }
     }
     return after;
-}
-
-int find_first_empty(help * h) {
-    for(int i = 0; i < h->count; i++) {
-        meta * cur = (h->files + i);
-        if(cur->name[0] == '\0' || (cur->length == 0 && cur->offset == 0)){
-            return i;
-        }   
-    }
-    return -1;
 }
 
 int find_file(char * name, help * h) {
@@ -169,6 +207,8 @@ void write_meta(meta * m, size_t place, help* h){
 }
 
 int create_file(char * filename, size_t length, void * helper) {
+    printf("cf");
+
     help* h = (help*)helper;
 
     if(find_file(filename, h) != -1){
@@ -209,6 +249,9 @@ int create_file(char * filename, size_t length, void * helper) {
     free(empty);
     free(new);
 
+    compute_hash_tree(helper);
+   
+
     return 0;
 }
 
@@ -236,6 +279,8 @@ void remove_repack_replace(meta* f, size_t length, void * helper){
 }
 
 int resize_file(char * filename, size_t length, void * helper) {
+    printf("rf");
+
     help * h = (help *)helper;
     int x = find_file(filename, h);
     if(x == -1)
@@ -256,8 +301,9 @@ int resize_file(char * filename, size_t length, void * helper) {
     else {
         return 2;
     }
-    return 0;
+    compute_hash_tree(helper);
 
+    return 0;
 }
 
 meta * find_next(meta* cur, help * h){
@@ -281,6 +327,7 @@ meta * find_next(meta* cur, help * h){
 }
 
 void repack(void * helper) {
+    printf("rp");
     help * h = (help *)helper;
     meta * curn = find_next(NULL, h);
     int cur = 0;
@@ -303,6 +350,7 @@ void repack(void * helper) {
         curn = find_next(curn, h);
 
     }        
+    compute_hash_tree(helper);
 }
 
 int delete_file(char * filename, void * helper) {
@@ -337,12 +385,14 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
     if(offset+count > f->length)
         return 2;
 
-    fseek((h->file_ptrs[0]), f->offset + offset, SEEK_SET);
-    fread(buf, 1, count, (h->file_ptrs[0]));
+    memcpy(buf, h->file_data + f->offset + offset, count);
     return 0;
 }
 
 int write_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
+    printf("wr");
+    pthread_mutex_lock(&lock);
+
     help * h = (help *)helper;
     int x = find_file(filename, h);
     if(x==-1)
@@ -362,8 +412,10 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
         }
     }
     
-    fseek((h->file_ptrs[0]), f->offset + offset, SEEK_SET);
-    fwrite(buf, count, 1, h->file_ptrs[0]);
+    memcpy(h->file_data + f->offset + offset, buf, count);
+    compute_hash_tree(helper);
+    pthread_mutex_unlock(&lock);
+
     return 0;
 }
 
@@ -377,34 +429,66 @@ ssize_t file_size(char * filename, void * helper) {
 }
 
 void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
-    /*uint64_t ints[4] = {0};
+    uint64_t ints[4] = {0};
     
     uint32_t* b = (uint32_t*)buf;
 
     for(int i = 0; i < length/4; ++i) {
-        printf("%n", b + i);
-        ints[0] = ((ints[0] + (*b + i)) % 1<<32);
-        ints[1] = (ints[1] + ints[0]  % 1<<32);
-        ints[2] = (ints[2] + ints[1] % 1<<32);
-        ints[3] = (ints[3] + ints[2] % 1<<32);
+        ints[0] = ((ints[0] + *(b + i)) % UINT32_MAX);
+        ints[1] = ((ints[1] + ints[0])  % UINT32_MAX);
+        ints[2] = ((ints[2] + ints[1]) % UINT32_MAX);
+        ints[3] = ((ints[3] + ints[2]) % UINT32_MAX);
     }
     
-    uint8_t hash_value[16];
-
+    uint32_t* hash_value = (uint32_t*)malloc(sizeof(uint32_t) * 4);
+    
     for(int i = 0; i < 4; i++) {
-        for(int f = 0; f < 4; f++) {
-            hash_value[i * 4 + f] = ((uint8_t*)ints)[i * 4 + f + 3];
-        }
+        memcpy(hash_value + i, (uint32_t*)(ints + i), sizeof(uint32_t));
     }
-    printf("%d", hash_value[0]);
-*/  
+
+    memcpy(output, hash_value, sizeof(uint32_t) * 4);
+    free(hash_value);
 }
 
 
 void compute_hash_tree(void * helper) {
-    return;
+    pthread_mutex_lock(&lock);
+    help* h = (help*)helper;
+    for(int i = 0; i < h->count_hash_blocks; i++){
+        compute_hash_block(i, helper);
+    }
+
+    printf("a\n");
+
+    int blocksize = sizeof(uint8_t) * 16;
+
+    uint8_t * space = malloc(blocksize);
+    for(int i = h->hash_k-1; i >= 0; i--){
+        int start = pow(2, i)-1;
+        int nextlevel = pow(2, i+1)-2;
+        for(int f = 0; f <= nextlevel - start; f++){
+            //printf("start: %d, end: %d\n", ((nextlevel + f) + 1)*blocksize, ((start + f) * 2 + 1)*blocksize + blocksize * 2);
+            fletcher((uint8_t*)(h->hash_table + ((nextlevel + f) + 1)*blocksize), blocksize * 2, space);
+            memcpy((h->hash_table + (start * blocksize + f * blocksize)), space, blocksize);
+        }
+    }
+
+    free(space);
+    pthread_mutex_unlock(&lock);
 }
 
 void compute_hash_block(size_t block_offset, void * helper) {
-    return;
+    help * h = (help*)helper;
+
+    uint8_t * space = malloc(sizeof(uint8_t) * 16);
+
+    fletcher((uint8_t*)(h->file_data + 256 * block_offset), 256, space);
+
+    int placement = ((pow(2, h->hash_k)-1) + block_offset) * 16;
+
+    //printf("start: %d, end: %d\n", placement, placement + 16);
+    memcpy((h->hash_table + placement), space, sizeof(uint8_t) * 16);
+
+    free(space);
+
 }
