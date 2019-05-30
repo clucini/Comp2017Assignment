@@ -40,6 +40,19 @@ int test_hash(){
     close_fs(helper);
 }
 
+int test_write_lots(){
+    void * helper = init_fs("before/12_file_data", "before/12_directory_table", "before/12_hash_data", 4);
+    char buf[] = "tests";
+    create_file("file1.txt", 1, helper);
+    create_file("file2.txt", 1, helper);
+    for(int i = 0; i < 10000; i++){
+        write_file("file1.txt", 0, i, buf, helper);
+        write_file("file2.txt", 0, i, buf, helper);
+    }
+    close_fs(helper);
+    
+}
+
 /****************************/
 
 /* Helper function */
@@ -60,7 +73,7 @@ int main(int argc, char * argv[]) {
     //TEST(success);
     //TEST(failure);
     //TEST(no_operation);
-    TEST(test_hash);
+    TEST(test_write_lots);
     // Add more tests here
 
     return 0;

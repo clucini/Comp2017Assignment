@@ -10,11 +10,7 @@
 #include <stdio.h>
 #include <fuse.h>
 
-#include "myfilesystem.h"
-
-char * file_data_file_name = NULL;
-char * directory_table_file_name = NULL;
-char * hash_data_file_name = NULL;
+//#include "myfilesystem.h"
 
 int myfuse_getattr(const char * name, struct stat * result) {
     // MODIFY THIS FUNCTION
@@ -56,7 +52,9 @@ int myfuse_write(const char *, const char *, size_t, off_t, struct fuse_file_inf
 int myfuse_release(const char *, struct fuse_file_info *);
     // FILL OUT
 
-void * myfuse_init(struct fuse_conn_info *);
+void * myfuse_init(struct fuse_conn_info* a){
+    printf("aasdasdasd\n");
+}
     // FILL OUT
 
 void myfuse_destroy(void *);
@@ -68,6 +66,7 @@ int myfuse_create(const char *, mode_t, struct fuse_file_info *);
 struct fuse_operations operations = {
     .getattr = myfuse_getattr,
     .readdir = myfuse_readdir,
+    .init = myfuse_init,
     /* FILL OUT BELOW FUNCTION POINTERS
     .unlink =
     .rename =
@@ -83,16 +82,6 @@ struct fuse_operations operations = {
 };
 
 int main(int argc, char * argv[]) {
-    // MODIFY (OPTIONAL)
-    if (argc >= 5) {
-        if (strcmp(argv[argc-4], "--files") == 0) {
-            file_data_file_name = argv[argc-3];
-            directory_table_file_name = argv[argc-2];
-            hash_data_file_name = argv[argc-1];
-            argc -= 4;
-        }
-    }
-    // After this point, you have access to file_data_file_name, directory_table_file_name and hash_data_file_name
     int ret = fuse_main(argc, argv, &operations, NULL);
     return ret;
 }
