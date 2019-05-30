@@ -98,7 +98,6 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     h->fsize = st.st_size;
 
     
-    
     int hashTable = open(hash_data, O_RDWR, S_IRWXG);
     stat(hash_data, &st);
     h->hash_table = (uint8_t *)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, hashTable, 0);
