@@ -43,10 +43,12 @@ int myfuse_unlink(const char * filename){
 
 int myfuse_rename(const char * filename, const char * new_name){
     rename_file((char*)filename++, (char*)new_name++, raw_helper);
+    return 0;
 }
 
 int myfuse_truncate(const char * filename, off_t newsize){
     resize_file((char*)filename++, newsize, raw_helper);
+    return 0;
 }
 
 int myfuse_open(const char *, struct fuse_file_info *);
@@ -54,10 +56,12 @@ int myfuse_open(const char *, struct fuse_file_info *);
 
 int myfuse_read(const char * filename, char * buf, size_t length, off_t offset, struct fuse_file_info * fi){
     read_file((char*)filename++, offset, length, buf, raw_helper);
+    return 0;
 }
 
 int myfuse_write(const char * filename, const char * buf, size_t length, off_t offset, struct fuse_file_info * fi){
     write_file((char*)filename++, offset, length, (void*)buf, raw_helper);
+    return 0;
 }
 
 int myfuse_release(const char *, struct fuse_file_info * fi);
@@ -74,6 +78,7 @@ void myfuse_destroy(void * something){
 
 int myfuse_create(const char * filename, mode_t mode, struct fuse_file_info * fi){
     create_file((char*)filename++, 10, 0);
+    return 0;
 }
 struct fuse_operations operations = {
     .getattr = myfuse_getattr,
