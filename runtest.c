@@ -55,6 +55,7 @@ int test_write_lots(){
 
 int test_test_init_fuse(){
     void * helper = init_fs("fuse_test/files/file_data", "fuse_test/files/directory_table", "fuse_test/files/hash_data", 4);
+    printf("%s", ls(helper));
     close_fs(helper);
 }
 
@@ -78,7 +79,7 @@ int main(int argc, char * argv[]) {
     //TEST(success);
     //TEST(failure);
     //TEST(no_operation);
-    TEST(test_write_lots);
+    TEST(test_test_init_fuse);
     // Add more tests here
 
     return 0;

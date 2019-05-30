@@ -50,7 +50,7 @@ void print_file(help * h){
 char* ls(void * helper){
     help* h = (help*)helper;
     for(int i = 0; i < h->count; i++)
-        if((h->files + i)[0] != '\0')
+        if((h->files + i)->name[0] != '\0')
             return ((h->files + i)->name);
     return "No Files";
 }
@@ -119,7 +119,7 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     if(0){
         print_file(h);
     }    
-    return (void*)h;
+    return h;
 }
 
 /*  close_fs

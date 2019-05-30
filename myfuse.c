@@ -29,8 +29,10 @@ int myfuse_getattr(const char * name, struct stat * result) {
 
 int myfuse_readdir(const char * name, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi) {
     // MODIFY THIS FUNCTION
-    char* f = ls(fuse_get_context()->private_data);
-    filler(buf, f, NULL, 0);
+    help* h =(help*)fuse_get_context()->private_data);
+    for(int i = 0; i < h->count; i++)
+        if((h->files + i)->name[0] != '\0')
+            filler(buf, h->files + i)->name, NULL, 0);
     return 0;
 }
 
@@ -58,8 +60,8 @@ int myfuse_write(const char *, const char *, size_t, off_t, struct fuse_file_inf
 int myfuse_release(const char *, struct fuse_file_info *);
     // FILL OUT
 
-void * myfuse_init(struct fuse_conn_info * info){
-    void * helper = init_fs(file_data_file_name, directory_table_file_name, hash_data_file_name, 4);
+void * myfuse_init(struct fuse_conn_info * info){ 
+    void * helper = init_fs("files/file_data", "files/directory_table", "files_hash_data", 4); 
     return helper;
 }
     // FILL OUT
@@ -99,6 +101,7 @@ int main(int argc, char * argv[]) {
             argc -= 4;
         }
     }
+    fuse_get_context()->private_data = 
     // After this point, you have access to file_data_file_name, directory_table_file_name and hash_data_file_name
     int ret = fuse_main(argc, argv, &operations, NULL);
     return ret;
