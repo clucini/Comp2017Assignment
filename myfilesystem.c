@@ -92,7 +92,6 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     close(fileData);
 
     pthread_mutex_init(&lock, NULL);
-    //compute_hash_tree((void*)h);
     if(0){
         print_file(h);
     }    
@@ -207,7 +206,7 @@ void write_meta(meta * m, size_t place, help* h){
 }
 
 int create_file(char * filename, size_t length, void * helper) {
-    printf("cf");
+    printf("cf\n");
 
     help* h = (help*)helper;
 
@@ -279,7 +278,7 @@ void remove_repack_replace(meta* f, size_t length, void * helper){
 }
 
 int resize_file(char * filename, size_t length, void * helper) {
-    printf("rf");
+    printf("rf\n");
 
     help * h = (help *)helper;
     int x = find_file(filename, h);
@@ -327,7 +326,7 @@ meta * find_next(meta* cur, help * h){
 }
 
 void repack(void * helper) {
-    printf("rp");
+    printf("rp\n");
     help * h = (help *)helper;
     meta * curn = find_next(NULL, h);
     int cur = 0;
@@ -390,8 +389,8 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 }
 
 int write_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
-    printf("wr");
-    pthread_mutex_lock(&lock);
+    printf("wr\n");
+    //pthread_mutex_lock(&lock);
 
     help * h = (help *)helper;
     int x = find_file(filename, h);
@@ -414,7 +413,7 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
     
     memcpy(h->file_data + f->offset + offset, buf, count);
     compute_hash_tree(helper);
-    pthread_mutex_unlock(&lock);
+    //pthread_mutex_unlock(&lock);
 
     return 0;
 }
@@ -452,13 +451,13 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 
 
 void compute_hash_tree(void * helper) {
-    pthread_mutex_lock(&lock);
     help* h = (help*)helper;
     for(int i = 0; i < h->count_hash_blocks; i++){
         compute_hash_block(i, helper);
     }
 
     printf("a\n");
+    print_file(h);
 
     int blocksize = sizeof(uint8_t) * 16;
 
@@ -467,19 +466,19 @@ void compute_hash_tree(void * helper) {
         int start = pow(2, i)-1;
         int nextlevel = pow(2, i+1)-2;
         for(int f = 0; f <= nextlevel - start; f++){
-            //printf("start: %d, end: %d\n", ((nextlevel + f) + 1)*blocksize, ((start + f) * 2 + 1)*blocksize + blocksize * 2);
+            printf("copyto: %d, start: %d, end: %d\n", (start * blocksize + f * blocksize), ((nextlevel + f) + 1)*blocksize, ((start + f) * 2 + 1)*blocksize + blocksize * 2);
             fletcher((uint8_t*)(h->hash_table + ((nextlevel + f) + 1)*blocksize), blocksize * 2, space);
             memcpy((h->hash_table + (start * blocksize + f * blocksize)), space, blocksize);
         }
     }
 
     free(space);
-    pthread_mutex_unlock(&lock);
 }
 
 void compute_hash_block(size_t block_offset, void * helper) {
+    
     help * h = (help*)helper;
-
+    
     uint8_t * space = malloc(sizeof(uint8_t) * 16);
 
     fletcher((uint8_t*)(h->file_data + 256 * block_offset), 256, space);
@@ -489,6 +488,24 @@ void compute_hash_block(size_t block_offset, void * helper) {
     //printf("start: %d, end: %d\n", placement, placement + 16);
     memcpy((h->hash_table + placement), space, sizeof(uint8_t) * 16);
 
+    /*placement = placement / 16;
+    if(block_offset % 2 == 1){
+        placement--;
+    }
+
+    int blocksize = sizeof(uint8_t) * 16;
+
+    for(int i = h->hash_k; i >= 0; i--){
+        int start = pow(2, i)-1;
+        int nextlevel = pow(2, i+1)-2;
+        for(int f = 0; f <= nextlevel - start; f++){
+            if(f==0)
+                //printf("copyto: %d, start: %d, end: %d\n", (start * blocksize + f * blocksize), ((nextlevel + f) + 1)*blocksize, ((start + f) * 2 + 1)*blocksize + blocksize * 2);
+            fletcher((uint8_t*)(h->hash_table + ((nextlevel + f) + 1)*blocksize), blocksize * 2, space);
+            memcpy((h->hash_table + (start * blocksize + f * blocksize)), space, blocksize);
+        }
+    }
+    */
     free(space);
 
 }
