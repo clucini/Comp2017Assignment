@@ -47,6 +47,22 @@ void print_file(help * h){
     }
 }
 
+char* ls(void * helper){
+    help* h = (help*)helper;
+    char* files = (char*)malloc(1024);
+    int a = 0;
+    for(int i = 0; i < h->count; i++) {
+        meta * cur = (h->files) + i;
+        if(cur->name[0] == '\0'){
+            strncpy(files + a, cur->name, strlen(cur->name));
+            a+= strlen(cur->name);
+            strncpy(files + a, "\n", 1);
+            a++;
+        }
+    }
+    return files;
+}
+
 /*  NAME_OF_FUNCTION
 *   WHAT IT DOES
 *   ARGS(TYPE, NAME: DESCRIPTION)

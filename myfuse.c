@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <fuse.h>
 
-#include "myfilesystem.h"
+#include "myfilesystem.c"
 
 char * file_data_file_name = NULL;
 char * directory_table_file_name = NULL;
@@ -29,17 +29,13 @@ int myfuse_getattr(const char * name, struct stat * result) {
 
 int myfuse_readdir(const char * name, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi) {
     // MODIFY THIS FUNCTION
-    if (strcmp(name, "/") == 0) {
-        
-        filler(buf, "test_file", NULL, 0);
-    }
+    filler(buf, ls(fuse_get_context()->private_data), NULL, 0);
     return 0;
 }
 
 int myfuse_unlink(const char * file_to_del){
-    printf("%s", file_to_del);
+    //delete_file(file_to_del, fuse_get_context()->private_data);
     return 0;
-    //delete_file(, fuse_get_context()->private_data);
 }
     // FILL OUT
 
