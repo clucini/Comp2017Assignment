@@ -53,6 +53,11 @@ int test_write_lots(){
     
 }
 
+int test_test_init_fuse(){
+    void * helper = init_fs("fuse_test/files/file_data", "fuse_test/files/directory_table", "fuse_test/files/hash_data", 4);
+    close_fs(helper);
+}
+
 /****************************/
 
 /* Helper function */
