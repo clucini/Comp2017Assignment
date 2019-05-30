@@ -21,10 +21,10 @@ char * hash_data_file_name = NULL;
 int myfuse_getattr(const char * filename, struct stat * result) {
     memset(result, 0, sizeof(struct stat));
     help* h = ((help*)raw_helper);
-    int x = find_file((char*)filename++, h);
-
-    if (strcmp(name, "/") == 0) {
-        result->st_mode = S_IFDIR;
+    
+    if (strcmp(filename, "/") == 0) {
+        result->st_mode = S_IFREG;
+        int x = find_file((char*)filename++, h);
         result->st_size = h->files[x].length;
     } else {
         result->st_mode = S_IFREG;
