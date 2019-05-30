@@ -51,9 +51,9 @@ int myfuse_truncate(const char * filename, off_t newsize){
     return 0;
 }
 
-int myfuse_open(const char *, struct fuse_file_info *);
-    // FILL OUT
-
+int myfuse_open(const char * filename, struct fuse_file_info * fi){
+    return 0;
+}
 int myfuse_read(const char * filename, char * buf, size_t length, off_t offset, struct fuse_file_info * fi){
     read_file((char*)filename++, offset, length, buf, raw_helper);
     return 0;
@@ -64,8 +64,9 @@ int myfuse_write(const char * filename, const char * buf, size_t length, off_t o
     return 0;
 }
 
-int myfuse_release(const char *, struct fuse_file_info * fi);
-    // FILL OUT
+int myfuse_release(const char * filename, struct fuse_file_info * fi){
+    return 0;
+}
 
 void * myfuse_init(struct fuse_conn_info * info){ 
     void * helper = init_fs("files/file_data", "files/directory_table", "files_hash_data", 4); 
@@ -86,10 +87,8 @@ struct fuse_operations operations = {
     .unlink = myfuse_unlink,
     .rename = myfuse_rename,
     .truncate = myfuse_truncate,
-//    .open = myfuse_open,
     .read = myfuse_read,
     .write = myfuse_write,
-//    .release = myfuse_release,
     .init = myfuse_init,
     .destroy = myfuse_destroy,
     .create = myfuse_create,
