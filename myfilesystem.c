@@ -47,14 +47,6 @@ void print_file(help * h){
     }
 }
 
-char* ls(void * helper){
-    help* h = (help*)helper;
-    for(int i = 0; i < h->count; i++)
-        if((h->files + i)->name[0] != '\0')
-            return ((h->files + i)->name);
-    return "No Files";
-}
-
 /*  NAME_OF_FUNCTION
 *   WHAT IT DOES
 *   ARGS(TYPE, NAME: DESCRIPTION)
@@ -85,14 +77,14 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     
     int dTable = open(directory_table, O_RDWR, S_IRWXG);
     stat(directory_table, &st);
-    h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, dTable, 0);
+    h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, dTable, 0);
     
     h->count = st.st_size/sizeof(meta);
 
     
     int fileData = open(file_data, O_RDWR, S_IRWXG);
     stat(file_data, &st);
-    h->file_data = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fileData, 0);
+    h->file_data = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, fileData, 0);
     
     h->count_hash_blocks = st.st_size / 256;
     h->fsize = st.st_size;
@@ -100,7 +92,7 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     
     int hashTable = open(hash_data, O_RDWR, S_IRWXG);
     stat(hash_data, &st);
-    h->hash_table = (uint8_t *)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, hashTable, 0);
+    h->hash_table = (uint8_t *)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED , hashTable, 0);
     
     h->h_size = st.st_size;
     int count = h->count_hash_blocks;
