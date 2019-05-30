@@ -53,6 +53,22 @@ void print_file(help * h){
 *   RETURN VALUE
 */
 
+/*  init_fs
+    Initializes the entire file system, creates references to the 3 "real" files
+    Also initializes various other useful things, mutexes and other helper variables
+    All of this information is stored in a void *, can be cast by other functions to a help type, in order to read information
+
+    ARGS(
+        char * file_data: name of the file containing the data for our file system.
+        char * directory_table: the name of the file containing the metadata for our file system.
+        char * hash_data: the name of the file containing the hashes for the file data, in our file system.
+        int n_processors: the number of processors our virtual system is running on. 
+    )
+
+    A void * pointer to the helper variable is returned.
+*/
+
+
 void * init_fs(char * file_data, char * directory_table, char * hash_data, int n_processors) {
     help* h = (help*)malloc(sizeof(help));
     struct stat st;
@@ -96,12 +112,20 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
         print_file(h);
     }    
 
-    return h;
+    return (void*)h;
 }
 
+/*  close_fs
+    Closes our fle system, frees all allocated memory, destorys all mutexes
 
-void close_fs(void * hv) {
-    help* h = (help*)hv;
+    ARGS(
+        void * helper: Our helper variable, contains information about our files, as well as pointers to 
+    )
+    RETURN VALUE
+*/
+
+void close_fs(void * helper) {
+    help* h = (help*)helper;
     munmap(h->files, h->count*sizeof(meta));
     munmap(h->hash_table, h->h_size);
     munmap(h->file_data, h->fsize);
