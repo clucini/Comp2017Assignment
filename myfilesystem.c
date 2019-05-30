@@ -53,7 +53,7 @@ char* ls(void * helper){
     int a = 0;
     for(int i = 0; i < h->count; i++) {
         meta * cur = (h->files) + i;
-        if(cur->name[0] == '\0'){
+        if(cur->name[0] != '\0'){
             strncpy(files + a, cur->name, strlen(cur->name));
             a+= strlen(cur->name);
             strncpy(files + a, "\n", 1);
@@ -127,7 +127,7 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     if(0){
         print_file(h);
     }    
-
+    printf("%s", ls(h));
     return (void*)h;
 }
 
