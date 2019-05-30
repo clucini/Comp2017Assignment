@@ -30,12 +30,17 @@ int myfuse_getattr(const char * name, struct stat * result) {
 int myfuse_readdir(const char * name, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi) {
     // MODIFY THIS FUNCTION
     if (strcmp(name, "/") == 0) {
+        
         filler(buf, "test_file", NULL, 0);
     }
     return 0;
 }
 
-int myfuse_unlink(const char *);
+int myfuse_unlink(const char * file_to_del){
+    printf("%s", file_to_del);
+    return 0;
+    //delete_file(, fuse_get_context()->private_data);
+}
     // FILL OUT
 
 int myfuse_rename(const char *, const char *);
@@ -56,7 +61,10 @@ int myfuse_write(const char *, const char *, size_t, off_t, struct fuse_file_inf
 int myfuse_release(const char *, struct fuse_file_info *);
     // FILL OUT
 
-void * myfuse_init(struct fuse_conn_info *);
+void * myfuse_init(struct fuse_conn_info * info){
+    void * helper = init_fs(file_data_file_name, directory_table_file_name, hash_data_file_name, 4);
+    return helper;
+}
     // FILL OUT
 
 void myfuse_destroy(void *);
@@ -68,6 +76,8 @@ int myfuse_create(const char *, mode_t, struct fuse_file_info *);
 struct fuse_operations operations = {
     .getattr = myfuse_getattr,
     .readdir = myfuse_readdir,
+    .unlink = myfuse_unlink,
+    .init = myfuse_init,
     /* FILL OUT BELOW FUNCTION POINTERS
     .unlink =
     .rename =
