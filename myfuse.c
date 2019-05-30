@@ -29,7 +29,8 @@ int myfuse_getattr(const char * name, struct stat * result) {
 
 int myfuse_readdir(const char * name, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi) {
     // MODIFY THIS FUNCTION
-    filler(buf, ls(fuse_get_context()->private_data), NULL, 0);
+    char* f = ls(fuse_get_context()->private_data);
+    filler(buf, f, NULL, 0);
     return 0;
 }
 
