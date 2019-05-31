@@ -34,17 +34,17 @@ int myfuse_getattr(const char* filename, struct stat* result) {
     memset(result, 0, sizeof(struct stat));
     help* h = ((help*)raw_helper);
     char* fname = (char*)filename;
-    if (strcmp(filename, "/") == 0) {
-        fname = (char*)filename+1;
-    }   
+    if (strcmp(name, "/") == 0) {
+        result->st_mode = S_IFDIR;
+    } else {
+        int x = find_file(fname, h);
 
-    int x = find_file(fname, h);
-
-   	if(x == -1)
-		return -ENOENT;     //Invalid File
-	result->st_mode = S_IFREG;
-	result->st_nlink = 1;
-    result->st_size = (h->files + x)->length;
+        if(x == -1)
+            return -ENOENT;     //Invalid File
+        result->st_mode = S_IFREG;
+        result->st_nlink = 1;
+        result->st_size = (h->files + x)->length;
+    }
     return 0;   //Success
 }
 
