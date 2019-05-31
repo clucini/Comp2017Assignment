@@ -67,13 +67,22 @@ int myfuse_open(const char * filename, struct fuse_file_info * fi){
     return 0;
 }
 int myfuse_read(const char * filename, char * buf, size_t length, off_t offset, struct fuse_file_info * fi){
-    printf("Reading :%s\n", filename);
+    printf("Reading: %s\n", filename);
+    help* h = (help*)raw_helper;
+    meta * f = find_file(filename, h);
+    if(offset > f->length){
+        return 0;
+    }
+    else if (offset + length > f->length){
+        length = f->length - offset;
+    }
+
     read_file(((char*)filename)+1, offset, length, buf, raw_helper);
-    return 0;
+    return length;
 }
 
 int myfuse_write(const char * filename, const char * buf, size_t length, off_t offset, struct fuse_file_info * fi){
-    printf("Reading :%s\n", filename);
+    printf("Writing: %s, bytes: length, offset\n", filename);
     write_file(((char*)filename)+1, offset, length, (void*)buf, raw_helper);
     return 0;
 }
