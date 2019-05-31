@@ -67,8 +67,8 @@ int myfuse_readdir(const char * filename, void * buf, fuse_fill_dir_t filler, of
     printf("Reading Directory: %s\n", filename);
     help* h = ((help*)raw_helper);
     int i = 0;
-    for(i; i < h->count; i++)
-        if(strcmp((h->files + i)->name[0], '\0') != 0)
+    for(i; i < h->num_files; i++)
+        if((h->files + i)->name[0] != '\0')
             if(filler(buf, (h->files + i)->name, NULL, 0) != 0){
                 return -EINVAL;      //Result buffer is too small.
             }
