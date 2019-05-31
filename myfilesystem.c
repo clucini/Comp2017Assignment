@@ -222,6 +222,7 @@ meta* find_gap(size_t length, help * h) {
 
 int find_file(char * name, help * h) {
     for(int i = 0; i < h->count; i++) {
+	printf("%d", i);
         if(strcmp((h->files + i)->name, name)==0) {
             return i;
         }
@@ -403,11 +404,12 @@ int rename_file(char * oldname, char * newname, void * helper) {
 int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
     help * h = (help *)helper;
     int x = find_file(filename, h);
-    if(x==-1)
+	printf("0\n");    
+if(x==-1)
         return 1;
-        
-    meta * f = h->files + x;
     
+    meta * f = h->files + x;
+	printf("%d, %d, %d\n", offset, count, f->length);    
     if(offset+count > f->length)
         return 2;
 
@@ -415,12 +417,12 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
     memcpy(b, h->hash_table, h->h_size);
 
     compute_hash_tree(helper);
-
+	printf("2\n");
     if(memcmp(b, h->hash_table, h->h_size) != 0){
         free(b);
         return 3;
     }
-
+	printf("3\n");
     /*int start_offset = floor((float)f->offset / 256.0f);
     int num_blocks = (floor((float)(f->offset + f->length) / 256.0f) - start_offset) + 1;
     uint8_t* b = (uint8_t*)malloc(16);
