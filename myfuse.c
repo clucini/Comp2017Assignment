@@ -31,10 +31,11 @@ char * hash_data_file_name = NULL;
 */
 
 int myfuse_getattr(const char* filename, struct stat* result) {
+    printf("Getting attributes: %s\n", filename);
     memset(result, 0, sizeof(struct stat));
     help* h = ((help*)raw_helper);
     char* fname = (char*)filename;
-    if (strcmp(name, "/") == 0) {
+    if (strcmp(filename, "/") == 0) {
         result->st_mode = S_IFDIR;
     } else {
         int x = find_file(fname, h);
@@ -75,7 +76,7 @@ int myfuse_readdir(const char * filename, void * buf, fuse_fill_dir_t filler, of
     if(i == 0){
         return -ENOENT;   //No such files/directory.
     }
-    return 1;   //Success
+    return 0;   //Success | man 2 readdir says to return 1, however, fuse always errors when I do that.
 }
 
 /*  myfuse_unlink
