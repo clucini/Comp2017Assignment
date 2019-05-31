@@ -117,9 +117,9 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     Closes our fle system, frees all allocated memory, destorys all mutexes
 
     ARGS(
-        void * helper: Our helper variable, contains information about our files, as well as pointers to 
     )
-    RETURN VALUE
+    
+    No return
 */
 
 void close_fs(void * helper) {
@@ -131,6 +131,15 @@ void close_fs(void * helper) {
     free(h);
 }
 
+/*  close_fs
+    Closes our fle system, frees all allocated memory, destorys all mutexes
+
+    ARGS(
+        void * helper: Our helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    No return
+*/
 
 size_t check_gap_after(meta* item, help * h){
     size_t s = h->fsize - (item->offset + item->length);
@@ -216,7 +225,7 @@ meta* find_gap(size_t length, help * h) {
 
 int find_file(char * name, help * h) {
     for(int i = 0; i < h->count; i++) {
-        if(strcmp((h->files + i) ->name, name)==0) {
+        if(strcmp((h->files + i)->name, name)==0) {
             return i;
         }
     }
