@@ -31,20 +31,24 @@ char * hash_data_file_name = NULL;
 */
 
 int myfuse_getattr(const char* filename, struct stat* result) {
-    memset(result, 0, sizeof(struct stat));
+	printf("Geting attributes: %s\n", filename);    
+memset(result, 0, sizeof(struct stat));
     help* h = ((help*)raw_helper);
-    char* fname = (char*)filename;
-    if (strcmp(name, "/") == 0) {
-        result->st_mode = S_IFDIR;
+    char* fname = (char*)filename+1;
+    if (strcmp(filename, "/") == 0) {
+	printf("reeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n");
+      
+	result->st_mode = S_IFDIR;
+	result->st_nlink = 2;
     } else {
         int x = find_file(fname, h);
-
-        if(x == -1)
-            return -ENOENT;     //Invalid File
+	printf("%d asdasdasdasda\n", (h->files+x)->length);
+//        if(x == -1)
+//            return -ENOENT;     //Invalid File
         result->st_mode = S_IFREG;
         result->st_nlink = 1;
         result->st_size = (h->files + x)->length;
-    }
+  }
     return 0;   //Success
 }
 
@@ -65,17 +69,17 @@ int myfuse_getattr(const char* filename, struct stat* result) {
 */
 int myfuse_readdir(const char * filename, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi) {
     printf("Reading Directory: %s\n", filename);
-    help* h = ((help*)raw_helper);
-    int i = 0;
-    for(i; i < h->num_files; i++)
-        if((h->files + i)->name[0] != '\0')
-            if(filler(buf, (h->files + i)->name, NULL, 0) != 0){
-                return -EINVAL;      //Result buffer is too small.
-            }
-    if(i == 0){
-        return -ENOENT;   //No such files/directory.
-    }
-    return 1;   //Success
+    help* h = ((help*)raw_helper);  
+	int count = 0;  
+for(int i = 0; i < h->num_files; i++)
+        if((h->files + i)->name[0] != '\0'){
+		(filler(buf, (h->files + i)->name, NULL, 0));
+	count++;
+}
+    if(count == 0){
+       return -ENOENT;   //No such files/directory.
+   }
+    return 0;   //Success
 }
 
 /*  myfuse_unlink
@@ -175,21 +179,25 @@ int myfuse_read(const char * filename, char * buf, size_t count, off_t offset, s
     help* h = (help*)raw_helper;
     int x = find_file((char*)filename+1, h);
     
-    if(x == -1)
-        return -EBADF;      //Closest approximation I could find to file does not exist.
-
+	printf("1\n");
+   // if(x == -1)
+    //    return -EBADF;      //Closest approximation I could find to file does not exist.
+	printf("2\n");
     meta * f = h->files + x;
-    if(offset > f->length){
-        return 0;           //Attempting to read outside of the file, return 0, the number of bytes read
+   // if(offset > f->length){
+	printf("3\n");        
+//return 0;           //Attempting to read outside of the file, return 0, the number of bytes read
+  //  }
+    if (offset + count > f->length){
+	printf("%d\n",count);        
+	count = f->length - offset;
+	printf("%d\n",count);
     }
-    else if (offset + count > f->length){
-        count = f->length - offset;
-    }
-
-    if(read_file(((char*)filename)+1, offset, count, buf, raw_helper) == 3){
-        return -EINVAL; //Closest I could find to "Corrupted file".
-    }
-    
+    read_file(((char*)filename)+1, offset, count, buf, raw_helper);
+//if == 3){
+  //      return -EINVAL; //Closest I could find to "Corrupted file".
+   // }
+    printf("%d\n", count);
     return count;      //Success, return number of bytes read.
 }
 
