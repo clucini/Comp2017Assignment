@@ -36,13 +36,15 @@ int myfuse_getattr(const char* filename, struct stat* result) {
     help* h = ((help*)raw_helper);
     char* fname = (char*)filename+1;
     if (strcmp(filename, "/") == 0) {
-        result->st_mode = S_IFDIR;
+	printf("dicks");    
+    result->st_mode = S_IFDIR;
         result->st_nlink = 2;
     } else {
         int x = find_file(fname, h);
         if(x == -1)
             return -ENOENT;     //Invalid File
-        result->st_mode = S_IFREG;
+        printf("%d\n",x);
+	result->st_mode = S_IFREG;
         result->st_nlink = 1;
         result->st_size = (h->files + x)->length;
     }
@@ -68,14 +70,17 @@ int myfuse_readdir(const char * filename, void * buf, fuse_fill_dir_t filler, of
     printf("Reading Directory: %s\n", filename);
     help* h = ((help*)raw_helper);
     int count = 0;
-    for(int i = 0; i < h->num_files; i++)
-        if((h->files + i)->name[0] != '\0')
-            if(filler(buf, (h->files + i)->name, NULL, 0) != 0){
+    for(int i = 0; i < h->num_files; i++){
+	printf("%d", i);
+        if((h->files + i)->name[0] != '\0'){
                 count++;
-                return -EINVAL;      //Result buffer is too small.
-            }
-    if(count == 0){
-        return -ENOENT;   //No such files/directory.
+
+            filler(buf, (h->files + i)->name, NULL, 0);
+     //   return -EINVAL;      //Result buffer is too small.
+            
+	}
+//    if(count == 0){
+ //       return -ENOENT;   //No such files/directory.
     }
     return 0;   //Success | man 2 readdir says to return 1, however, fuse always errors when I do that.
 }
@@ -212,18 +217,24 @@ int myfuse_write(const char * filename, const char * buf, size_t count, off_t of
     
     help * h = (help*)raw_helper;
     int x = find_file(((char*)filename)+1, h);    
+
+printf("1\n");
     if(x == -1)
         return -EBADF;       //Closest to invalid file
     meta * f = h->files + x;
     
+
+printf("2\n");
     if(offset > f->length)
         if(resize_file(((char*)filename)+1, offset + count, raw_helper) == 2)
             return -EDQUOT;     //Out of space on disk
 
+printf("3\n");
     if(f->offset + offset + count >= h->fsize)
         return -EFBIG;       //Attempting to write past end of max allowed file size        
-    
-    write_file(((char*)filename)+1, offset, count, (void*)buf, raw_helper);
+
+printf("4\n");    
+    printf("%d\n", write_file(((char*)filename)+1, offset, count, (void*)buf, raw_helper));
 
     //All conditions that are check inside write_file() have been checked above, hence write_file() should never error
 
