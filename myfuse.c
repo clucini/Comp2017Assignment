@@ -218,25 +218,21 @@ int myfuse_write(const char * filename, const char * buf, size_t count, off_t of
     help * h = (help*)raw_helper;
     int x = find_file(((char*)filename)+1, h);    
 
-printf("1\n");
     if(x == -1)
         return -EBADF;       //Closest to invalid file
     meta * f = h->files + x;
     
 
-printf("2\n");
     if(offset > f->length)
         if(resize_file(((char*)filename)+1, offset + count, raw_helper) == 2)
             return -EDQUOT;     //Out of space on disk
 
-printf("3\n");
     if(f->offset + offset + count >= h->fsize)
         return -EFBIG;       //Attempting to write past end of max allowed file size        
 
-printf("4\n");    
     printf("%d\n", write_file(((char*)filename)+1, offset, count, (void*)buf, raw_helper));
 
-    //All conditions that are check inside write_file() have been checked above, hence write_file() should never error
+    //All conditions that are checked inside write_file() have been checked above, hence write_file() should never error
 
     return count;
 }

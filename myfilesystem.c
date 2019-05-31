@@ -317,7 +317,8 @@ meta * find_next(meta* cur, help * h){
         help * h:       a pointer to the helper, already cast to the help struct. 
     )
     
-    RETURN: (int) the offset from which the file can be access. E.G (h->files + find_file("test_file", h)). -1 if it can't be found. 
+    RETURN: (int) the offset from which the file can be access. E.G (h->files + find_file("test_file", h)). 
+        -1 if it can't be found. 
 */
 int find_file(char * name, help * h) {
     for(int i = 0; i < h->num_files; i++) {
@@ -373,7 +374,10 @@ void write_meta(meta * meta_to_write, size_t place, help* h){
         void * helper:  the helper variable, contains information about our files, as well as pointers to the actual data 
     )
     
-    RETURN: (int), 0 if successful, 1 if a file with that name already exists, 2 if there is not enough room for this file.
+    RETURN: (int), 
+        0 if successful, 
+        1 if a file with that name already exists, 
+        2 if there is not enough room for this file.
 */
 void remove_repack_replace(meta* f, size_t length, void * helper){
     help* h = (help*)helper;
@@ -407,7 +411,10 @@ void remove_repack_replace(meta* f, size_t length, void * helper){
         void * helper:  the helper variable, contains information about our files, as well as pointers to the actual data 
     )
     
-    RETURN: (int), 0 if successful, 1 if a file with that name already exists, 2 if there is not enough room for this file.
+    RETURN: (int), 
+        0 if successful,
+        1 if a file with that name already exists, 
+        2 if there is not enough room for this file.
 */
 int create_file(char * filename, size_t length, void * helper) {
 
@@ -457,7 +464,10 @@ int create_file(char * filename, size_t length, void * helper) {
         void * helper:      the helper variable, contains information about our files, as well as pointers to the actual data 
     )
     
-    RETURN: (int), 0 if successful, 1 if a file with that name doesn't exist, 2 if there is not enough room for this operation.
+    RETURN: (int), 
+        0 if successful,
+        1 if a file with that name doesn't exist, 
+        2 if there is not enough room for this operation.
 */
 int resize_file(char * filename, size_t length, void * helper) {
 
@@ -495,7 +505,10 @@ int resize_file(char * filename, size_t length, void * helper) {
         void * helper:      the helper variable, contains information about our files, as well as pointers to the actual data 
     )
     
-    RETURN: (int), 0 if successful, 1 if a file with that name doesn't exist, 2 if there is not enough room for this operation.
+    RETURN: (int), 
+        0 if successful, 
+        1 if a file with that name doesn't exist, 
+        2 if there is not enough room for this operation.
 */
 void repack(void * helper) {
     help * h = (help *)helper;
@@ -521,6 +534,18 @@ void repack(void * helper) {
     compute_hash_tree(helper);
 }
 
+/*  delete_file
+    Deletes a specified file. 
+
+    ARGS(
+        char* filename:     the name of the file to delete.
+        void * helper:      the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: (int), 
+        0 if successful, 
+        1 if a file with that name doesn't exist.
+*/
 int delete_file(char * filename, void * helper) {
     help * h = (help *)helper;
     int x = find_file(filename, h);
@@ -531,6 +556,19 @@ int delete_file(char * filename, void * helper) {
     return 0;
 }
 
+/*  rename_file
+    Renames a specified file, if possible.
+
+    ARGS(
+        char* filename:     the name of the file to rename.
+        char* filename:     the new name of the file.
+        void * helper:      the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: (int), 
+        0 if successful, 
+        1 if a file with that name doesn't exist, or if the new name is already taken.
+*/
 int rename_file(char * oldname, char * newname, void * helper) {
     help * h = (help *)helper;
     int x = find_file(oldname, h);
@@ -542,6 +580,22 @@ int rename_file(char * oldname, char * newname, void * helper) {
     return 0;
 }
 
+/*  read_file
+    Reads specified bytes from a file, into a buffer provided.
+
+    ARGS(
+        char* filename:     the name of the file to read from.
+        size_t offset:      the offset from the start of the file, from which we would like to begin reading.
+        size_t count:       the number of bytes we would like to read.
+        void* buf:          the buffer we copy the read data into.
+        void * helper:      the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: (int),
+        0 if successful, 
+        1 if a file with that name doesn't exist, 
+        2 if you're trying to read outside of the file.
+*/
 int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
     help * h = (help *)helper;
     int x = find_file(filename, h);
@@ -567,6 +621,23 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
     return 0;
 }
 
+/*  write_file
+    writes specified bytes into a file, from a buffer provided.
+
+    ARGS(
+        char* filename:     the name of the file to write into.
+        size_t offset:      the offset from the start of the file, from which we would like to begin writing.
+        size_t count:       the number of bytes we would like to write.
+        void* buf:          the buffer we read bytes from, to write into our file.
+        void * helper:      the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: (int), 
+        0 if successful, 
+        1 if a file with that name doesn't exist, 
+        2 if you're trying to write outside of the file, 
+        3 if you're trying to write more data than there is room left avaliable on disk.
+*/
 int write_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
 
     pthread_mutex_lock(&lock);
@@ -604,6 +675,15 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
     return 0;
 }
 
+/*  file_size
+    returns the size of a file, given the file's name
+
+    ARGS(
+        char* filename:     the name of the file to check the size of.
+    )
+    
+    RETURN: (ssize_t), the size of the file, or -1 if the file does not exist
+*/
 ssize_t file_size(char * filename, void * helper) {
     help * h = (help *)helper;
     int x = find_file(filename, h);
@@ -613,6 +693,17 @@ ssize_t file_size(char * filename, void * helper) {
     return f->length;
 }
 
+/*  fletcher
+    runs the fletcher hashing algorithm, and outputs the result into output.
+
+    ARGS(
+        uint8_t * buf:      the input, all of the data which needs to be hashed.
+        size_t length:      the amount of data in bytes, that needs to be processed, from buf
+        uint8_t * output:   the buffer to copy the result of the hash into.
+    )
+    
+    RETURN: Nothing, is a void.
+*/
 void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
     uint64_t ints[4] = {0};
     
@@ -635,6 +726,16 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
     free(hash_value);
 }
 
+/*  compute_hash_tree
+    Computes the entire merkle hash tree for our file_data.
+    Essentially just calls compute_hash_block on every block in our file.
+
+    ARGS(
+        void * helper:      the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: Nothing, is a void.
+*/
 void compute_hash_tree(void * helper) {
     help* h = (help*)helper;
     for(int i = 0; i < h->count_hash_blocks; i++){
@@ -642,6 +743,16 @@ void compute_hash_tree(void * helper) {
     }
 }
 
+/*  compute_hash_tree
+    Computes the hash for the block given, and recursively hashes all affected blocks up the merkle hash tree, to the root.
+
+    ARGS(
+        size_t block_offset:    the block in file_data to hash.
+        void * helper:          the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: Nothing, is a void.
+*/
 void compute_hash_block(size_t block_offset, void * helper) {
     
     help * h = (help*)helper;

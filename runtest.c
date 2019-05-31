@@ -20,44 +20,19 @@ int no_operation() {
     return 0;
 }
 
-int create_fil(){
-    void * helper = init_fs("before/12_file_data", "before/12_directory_table", "before/12_hash_data", 4);
-    char buf[] = "tests";
-    int ret = write_file("file1.txt", 160, 50, buf, helper);
-    ret = write_file("file1.txt", 16, 5, buf, helper);
-    close_fs(helper);
-
-}
-
-int test_hash(){
-    void * helper = init_fs("before/16_file_data", "before/16_directory_table", "before/16_hash_data", 4);
-    uint8_t * data = (uint8_t*)malloc(sizeof(uint8_t) * 8);
-    for(int i = 0; i < 8; i++){
-        *(data + i) = i * 10;
-    }
-    fletcher(data, 20, NULL);
-
-    close_fs(helper);
-}
-
 int test_write_lots(){
-    void * helper = init_fs("before/12_file_data", "before/12_directory_table", "before/12_hash_data", 4);
+    void * helper = init_fs("test_files/file_data", "test_files/file_data", "test_files/file_data", 4);
     char buf[] = "tests";
     create_file("file1.txt", 1, helper);
     create_file("file2.txt", 1, helper);
     for(int i = 0; i < 10000; i++){
-        write_file("file1.txt", 0, i, buf, helper);
-        write_file("file2.txt", 0, i, buf, helper);
+        write_file("file1.txt", 0, i % 32, buf, helper);
+        write_file("file2.txt", 0, i % 32, buf, helper);
     }
     close_fs(helper);
     
 }
 
-int test_test_init_fuse(){
-    void * helper = init_fs("fuse_test/files/file_data", "fuse_test/files/directory_table", "fuse_test/files/hash_data", 4);
-    printf("%s", ls(helper));
-    close_fs(helper);
-}
 
 /****************************/
 
@@ -75,11 +50,8 @@ void test(int (*test_function) (), char * function_name) {
 
 int main(int argc, char * argv[]) {
     
-    // You can use the TEST macro as TEST(x) to run a test function named "x"
-    //TEST(success);
-    //TEST(failure);
-    //TEST(no_operation);
-    TEST(test_test_init_fuse);
+    TEST(no_operation);
+    TEST(test_write_lots);
     // Add more tests here
 
     return 0;
