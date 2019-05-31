@@ -31,6 +31,7 @@ char * hash_data_file_name = NULL;
 */
 
 int myfuse_getattr(const char* filename, struct stat* result) {
+<<<<<<< HEAD
 	printf("Geting attributes: %s\n", filename);    
 memset(result, 0, sizeof(struct stat));
     help* h = ((help*)raw_helper);
@@ -40,6 +41,14 @@ memset(result, 0, sizeof(struct stat));
       
 	result->st_mode = S_IFDIR;
 	result->st_nlink = 2;
+=======
+    printf("Getting attributes: %s\n", filename);
+    memset(result, 0, sizeof(struct stat));
+    help* h = ((help*)raw_helper);
+    char* fname = (char*)filename;
+    if (strcmp(filename, "/") == 0) {
+        result->st_mode = S_IFDIR;
+>>>>>>> dc7c21dfa7409b42f2ab54d463c11162efbea045
     } else {
         int x = find_file(fname, h);
 	printf("%d asdasdasdasda\n", (h->files+x)->length);
@@ -68,18 +77,18 @@ memset(result, 0, sizeof(struct stat));
     RETURN: 1 indicating sucess, or a negative int describing the fail condition.
 */
 int myfuse_readdir(const char * filename, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi) {
-    printf("Reading Directory: %s\n", filename);
-    help* h = ((help*)raw_helper);  
-	int count = 0;  
-for(int i = 0; i < h->num_files; i++)
-        if((h->files + i)->name[0] != '\0'){
-		(filler(buf, (h->files + i)->name, NULL, 0));
-	count++;
-}
-    if(count == 0){
-       return -ENOENT;   //No such files/directory.
-   }
-    return 0;   //Success
+    printf("Reading Directory: %s\n", filename)
+    help* h = ((help*)raw_helper);
+    for(int i = 0; i < h->num_files; i++)
+        if((h->files + i)->name[0] != '\0')
+            if(filler(buf, (h->files + i)->name, NULL, 0) != 0){
+                return -EINVAL;      //Result buffer is too small.
+            }
+    if(i == 0){
+        return -ENOENT;   //No such files/directory.
+    }
+    return 0;   //Success | man 2 readdir says to return 1, however, fuse always errors when I do that.
+>>>>>>> dc7c21dfa7409b42f2ab54d463c11162efbea045
 }
 
 /*  myfuse_unlink
