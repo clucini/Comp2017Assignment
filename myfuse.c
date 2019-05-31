@@ -71,16 +71,13 @@ int myfuse_readdir(const char * filename, void * buf, fuse_fill_dir_t filler, of
     help* h = ((help*)raw_helper);
     int count = 0;
     for(int i = 0; i < h->num_files; i++){
-	printf("%d", i);
         if((h->files + i)->name[0] != '\0'){
-                count++;
-
+            count++;
             filler(buf, (h->files + i)->name, NULL, 0);
-     //   return -EINVAL;      //Result buffer is too small.
-            
-	}
-//    if(count == 0){
- //       return -ENOENT;   //No such files/directory.
+        }        
+    }
+    if(count == 0){
+        return -ENOENT;   //No such files/directory.
     }
     return 0;   //Success | man 2 readdir says to return 1, however, fuse always errors when I do that.
 }
@@ -200,6 +197,9 @@ int myfuse_read(const char * filename, char * buf, size_t count, off_t offset, s
 
 /*  myfuse_write
    
+    NOTE: any attempt to write to a file not using a local string, will not work. 
+        I didn't get time to properly implement this.
+
     Writes the contents of a buffer to a file.
 
     ARGS(

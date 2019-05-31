@@ -448,6 +448,17 @@ int create_file(char * filename, size_t length, void * helper) {
     return 0;
 }
 
+/*  resize_file
+    Resizes a specified file, to a new specified length, if possible. 
+
+    ARGS(
+        char* filename:     the name of the file to resize.
+        size_t length:      the number of bytes the file would like allocated to it. 
+        void * helper:      the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: (int), 0 if successful, 1 if a file with that name doesn't exist, 2 if there is not enough room for this operation.
+*/
 int resize_file(char * filename, size_t length, void * helper) {
 
     help * h = (help *)helper;
@@ -475,6 +486,17 @@ int resize_file(char * filename, size_t length, void * helper) {
     return 0;
 }
 
+/*  repack
+    Resizes a specified file, to a new specified length, if possible. 
+
+    ARGS(
+        char* filename:     the name of the file to resize.
+        size_t length:      the number of bytes the file would like allocated to it. 
+        void * helper:      the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: (int), 0 if successful, 1 if a file with that name doesn't exist, 2 if there is not enough room for this operation.
+*/
 void repack(void * helper) {
     help * h = (help *)helper;
     meta * curn = find_next(NULL, h);
