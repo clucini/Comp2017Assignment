@@ -6,13 +6,10 @@
 #include "myfilesystem.h"
 #include <math.h>
 #include <sys/mman.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
-
-
 
 #define BLOCK_SIZE 256
 #define concat(a,b) a##b
@@ -77,14 +74,14 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     
     int dTable = open(directory_table, O_RDWR, S_IRWXG);
     stat(directory_table, &st);
-    h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, dTable, 0);
+    h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, dTable, 0);
     
     h->count = st.st_size/sizeof(meta);
 
     
     int fileData = open(file_data, O_RDWR, S_IRWXG);
     stat(file_data, &st);
-    h->file_data = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, fileData, 0);
+    h->file_data = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fileData, 0);
     
     h->count_hash_blocks = st.st_size / 256;
     h->fsize = st.st_size;
@@ -201,7 +198,6 @@ int find_first_empty(help * h) {
 }
 
 meta* find_gap(size_t length, help * h) {
-    const int count = h->count;
     meta* after = NULL;
     if(get_zero(h) == 0){
         int tmp = find_first_empty(h);
@@ -212,7 +208,7 @@ meta* find_gap(size_t length, help * h) {
             return (h->files + tmp);
         }   
     }
-    for(int i = 0; i < count; i++){
+    for(int i = 0; i < h->count; i++){
         meta* cur = (h->files + i);
         if(cur->name[0] == '\0') {
             continue;
@@ -226,7 +222,6 @@ meta* find_gap(size_t length, help * h) {
 
 int find_file(char * name, help * h) {
     for(int i = 0; i < h->count; i++) {
-        printf("i: %d, count: %d", i, h->count);
         if(strcmp((h->files + i)->name, name)==0) {
             return i;
         }

@@ -84,7 +84,7 @@ int myfuse_release(const char * filename, struct fuse_file_info * fi){
 
 void * myfuse_init(struct fuse_conn_info * info){ 
     printf("Initializing filesystem\n");
-    void * helper = init_fs("files/file_data", "files/directory_table", "files_hash_data", 4); 
+    void * helper = init_fs(file_data_file_name, directory_table_file_name, hash_data_file_name, 4); 
     print_file(helper);
     return helper;
 }
