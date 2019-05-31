@@ -226,6 +226,7 @@ meta* find_gap(size_t length, help * h) {
 
 int find_file(char * name, help * h) {
     for(int i = 0; i < h->count; i++) {
+        printf("i: %d, count: %d", i, h->count);
         if(strcmp((h->files + i)->name, name)==0) {
             return i;
         }
