@@ -16,13 +16,24 @@
 
 pthread_mutex_t lock; 
 
+/*  meta
+    
+    A struct I use to simpify the process of accessing and modifying my directory_table.
+    
+    char name[64]: the name of the file at the current location.
+    unsigned int offset: the start point of bytes belonging to this file inside file_data.
+    unsigned int length: the number of bytes belonging to this file inside file_data.
 
+*/
 typedef struct metaData{
     char name[64];
     unsigned int offset;
     unsigned int length;
 } meta;
 
+/*  help
+
+*/
 typedef struct Helper {
     void* file_data;
     int n_processors;
@@ -62,7 +73,7 @@ void print_file(help * h){
         int n_processors: the number of processors our virtual system is running on. 
     )
 
-    A void * pointer to the helper variable is returned.
+    RETURN: A void * pointer to the helper variable is returned.
 */
 
 
@@ -129,7 +140,7 @@ void close_fs(void * helper) {
     free(h);
 }
 
-/*  close_fs
+/*  check_gap_after
     Closes our fle system, frees all allocated memory, destorys all mutexes
 
     ARGS(
@@ -185,8 +196,6 @@ int get_zero(help * h){
     return 0;
 }
 
-
-
 int find_first_empty(help * h) {
     for(int i = 0; i < h->count; i++) {
         meta * cur = (h->files + i);
@@ -222,7 +231,6 @@ meta* find_gap(size_t length, help * h) {
 
 int find_file(char * name, help * h) {
     for(int i = 0; i < h->count; i++) {
-	printf("%d", i);
         if(strcmp((h->files + i)->name, name)==0) {
             return i;
         }
@@ -257,6 +265,8 @@ int create_file(char * filename, size_t length, void * helper) {
                 repack(helper);
                 meta* after = find_gap(length, helper);
                 noffset = after->offset + after->length;
+            } else {
+                return 2;
             }
         }
         else {
@@ -314,7 +324,7 @@ int resize_file(char * filename, size_t length, void * helper) {
     help * h = (help *)helper;
     int x = find_file(filename, h);
     if(x == -1)
-        return 0;
+        return 1;
 
     meta * f = (h->files + x);
     if(length < f->length) {
@@ -404,12 +414,10 @@ int rename_file(char * oldname, char * newname, void * helper) {
 int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
     help * h = (help *)helper;
     int x = find_file(filename, h);
-	printf("0\n");    
-if(x==-1)
+    if(x==-1)
         return 1;
     
     meta * f = h->files + x;
-	printf("%d, %d, %d\n", offset, count, f->length);    
     if(offset+count > f->length)
         return 2;
 
@@ -417,25 +425,11 @@ if(x==-1)
     memcpy(b, h->hash_table, h->h_size);
 
     compute_hash_tree(helper);
-	printf("2\n");
     if(memcmp(b, h->hash_table, h->h_size) != 0){
         free(b);
         return 3;
     }
-	printf("3\n");
-    /*int start_offset = floor((float)f->offset / 256.0f);
-    int num_blocks = (floor((float)(f->offset + f->length) / 256.0f) - start_offset) + 1;
-    uint8_t* b = (uint8_t*)malloc(16);
-    printf("%d", num_blocks);
-    for(int i = 0; i < num_blocks; i++){
-        for(int f = 0; f )
-        fletcher((uint8_t*)(h->file_data + (start_offset + i) * 256), 256, b);
-        
-        if(memcmp(b, h->hash_table + hash_block_placement, 16) != 0){
-            free(b);
-            return 3;
-        }
-    }*/
+    
     free(b);
 
     memcpy(buf, h->file_data + f->offset + offset, count);
@@ -509,7 +503,6 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
     memcpy(output, hash_value, sizeof(uint32_t) * 4);
     free(hash_value);
 }
-
 
 void compute_hash_tree(void * helper) {
     help* h = (help*)helper;
