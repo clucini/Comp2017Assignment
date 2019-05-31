@@ -68,7 +68,7 @@ int myfuse_readdir(const char * filename, void * buf, fuse_fill_dir_t filler, of
     help* h = ((help*)raw_helper);
     int i = 0;
     for(i; i < h->count; i++)
-        if(strcmp((h->files + i)->name, (char*)filename+1))
+        if(strcmp((h->files + i)->name[0], '\0') != 0)
             if(filler(buf, (h->files + i)->name, NULL, 0) != 0){
                 return -EINVAL;      //Result buffer is too small.
             }
@@ -208,7 +208,7 @@ int myfuse_read(const char * filename, char * buf, size_t count, off_t offset, s
     RETURN: a positive integer indicating the number of bytes written; sucess, or a negative int describing the fail condition.
 */
 int myfuse_write(const char * filename, const char * buf, size_t count, off_t offset, struct fuse_file_info * fi){
-    printf("Writing: %s, bytes: %d, offset:, %d\n", filename, count, offset);
+    printf("Writing: %s, bytes: %ld, offset:, %ld\n", filename, count, offset);
     
     help * h = (help*)raw_helper;
     int x = find_file(((char*)filename)+1, h);    
@@ -315,6 +315,16 @@ struct fuse_operations operations = {
     .create = myfuse_create,
 };
 
+/*  main
+    Starts fuse, defines the variables for our functions.
+
+    ARGS(
+        int argc:       the number of arguments passed into the program.
+        char * argv[]:  the arguments passed into the program.
+    )
+
+    RETURN: 0 on success, non-zero on failure
+*/
 int main(int argc, char * argv[]) {
     if (argc >= 5) {
         if (strcmp(argv[argc-4], "--files") == 0) {

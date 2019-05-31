@@ -16,8 +16,7 @@
 
 pthread_mutex_t lock; 
 
-/*  meta
-    
+/*  meta  
     A struct I use to simpify the process of accessing and modifying my directory_table.
     
     char name[64]: the name of the file at the current location.
@@ -32,14 +31,25 @@ typedef struct metaData{
 } meta;
 
 /*  help
+    A struct I use to help with various operations
+
+    void* file_data:        a pointer to which I map to my file_data file.
+    meta* files:            a pointer to which I map my directory_table file. Uses the meta struct shown above.
+    uint8_t* hash_table:    a pointer to which I map my hash_data file. Uses uint8_t because that allows me to dereference, something which void * doesn't allow
+    int n_processors:       the number of processors that the system has.
+    int num_files:          the number of distinct files the system can hold.
+    int fsize:              the size of file_data.
+    int count_hash_blocks:  the number of hash blocks necessary to hash file_data.
+    int hash_k:             the number of levels the merkle tree has. 
+    size_t h_size           the size of hash_data.
 
 */
 typedef struct Helper {
     void* file_data;
-    int n_processors;
-    int count;
     meta* files;
     uint8_t* hash_table;
+    int n_processors;
+    int num_files;
     int fsize;
     int count_hash_blocks;
     int hash_k;
@@ -47,19 +57,23 @@ typedef struct Helper {
 
 } help;
 
+/*  print_file 
+    Prints important information about our file system.
+    Used for debugging.
+
+    ARGS(
+       help * h:    a pointer to the helper, already cast to the help struct. 
+    )
+
+    RETURN: Nothing, is a void.
+*/
 void print_file(help * h){
-    printf("Size: %d, Count: %d \n", h->fsize, h->count);
-    for(int i = 0; i < h->count; i++) {
+    printf("Size: %d, Count: %d \n", h->fsize, h->num_files);
+    for(int i = 0; i < h->num_files; i++) {
         meta * cur = (h->files) + i;
         printf("%s, %d, %d \n", cur->name, cur->offset, cur->length);
     }
 }
-
-/*  NAME_OF_FUNCTION
-*   WHAT IT DOES
-*   ARGS(TYPE, NAME: DESCRIPTION)
-*   RETURN VALUE
-*/
 
 /*  init_fs
     Initializes the entire file system, creates references to the 3 "real" files
@@ -73,10 +87,8 @@ void print_file(help * h){
         int n_processors: the number of processors our virtual system is running on. 
     )
 
-    RETURN: A void * pointer to the helper variable is returned.
+    RETURN: (void*) A pointer to the helper variable is returned.
 */
-
-
 void * init_fs(char * file_data, char * directory_table, char * hash_data, int n_processors) {
     help* h = (help*)malloc(sizeof(help));
     struct stat st;
@@ -87,7 +99,7 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     stat(directory_table, &st);
     h->files = (meta*)mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, dTable, 0);
     
-    h->count = st.st_size/sizeof(meta);
+    h->num_files = st.st_size/sizeof(meta);
 
     
     int fileData = open(file_data, O_RDWR, S_IRWXG);
@@ -115,25 +127,24 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     close(fileData);
 
     pthread_mutex_init(&lock, NULL);
-    if(0){
+    if(0){              //Used for testing.
         print_file(h);
     }    
     return h;
 }
 
 /*  close_fs
-    Closes our fle system, frees all allocated memory, destorys all mutexes
+    Closes our file system, frees all allocated memory, destorys all mutexes
 
     ARGS(
-        void * helper: Our helper variable, contains information about our files, as well as pointers to the actual data 
+        void * helper: the helper variable, contains information about our files, as well as pointers to the actual data 
     )
     
-    No return
+    RETURN: No return, is a void.
 */
-
 void close_fs(void * helper) {
     help* h = (help*)helper;
-    munmap(h->files, h->count*sizeof(meta));
+    munmap(h->files, h->num_files*sizeof(meta));
     munmap(h->hash_table, h->h_size);
     munmap(h->file_data, h->fsize);
     pthread_mutex_destroy(&lock);
@@ -141,18 +152,18 @@ void close_fs(void * helper) {
 }
 
 /*  check_gap_after
-    Closes our fle system, frees all allocated memory, destorys all mutexes
+    Checks the size of the gap in file_data immediately following a specific file. 
 
     ARGS(
-        void * helper: Our helper variable, contains information about our files, as well as pointers to the actual data 
+        meta* item:     The item to check after.
+        help * h:    a pointer to the helper, already cast to the help struct. 
     )
     
-    No return
+    RETURN: (size_t) the size of the gap. 
 */
-
 size_t check_gap_after(meta* item, help * h){
     size_t s = h->fsize - (item->offset + item->length);
-    for(int f = 0; f < h->count; f++){
+    for(int f = 0; f < h->num_files; f++){
         meta* incur = h->files + f;
         if (incur == item || item->offset > incur->offset)
             continue;
@@ -166,9 +177,20 @@ size_t check_gap_after(meta* item, help * h){
     return s;
 }
 
+/*  get_free_space
+    Finds the total amount of free space avaliable in the system, excluding one item.
+    Very useful for checking resizes.
+
+    ARGS(
+        help * h:       a pointer to the helper, already cast to the help struct. 
+        meta* exclude:  the item to exclude
+    )
+    
+    RETURN: (int) the amount of free space avaliable. 
+*/
 int get_free_space(help * h, meta * exclude){
     int total = 0;
-    for(int i = 0; i < h->count; i++){
+    for(int i = 0; i < h->num_files; i++){
         meta* cur = (h->files + i);
         if(cur == exclude){
             if(exclude->offset == 0 || check_gap_after(exclude, h) + exclude->length + exclude->offset == h->fsize){
@@ -188,16 +210,34 @@ int get_free_space(help * h, meta * exclude){
     return total;
 }
 
+/*  get_zero
+    Checks if there is a file at offset 0. 
+
+    ARGS(
+        help * h:       a pointer to the helper, already cast to the help struct. 
+    )
+    
+    RETURN: (int) 0 if there is none, 1 if there is. 
+*/
 int get_zero(help * h){
-    for(int i = 0; i < h->count; i++){
+    for(int i = 0; i < h->num_files; i++){
         if((h->files + i)->offset == 0 && (h->files + i)->name[0] != '\0')
             return 1;
     }
     return 0;
 }
 
+/*  find_first_empty
+    Finds the first empty slot in directory_table.
+
+    ARGS(
+        help * h:       a pointer to the helper, already cast to the help struct. 
+    )
+    
+    RETURN: (int) the first empty slot in directory_table. 
+*/
 int find_first_empty(help * h) {
-    for(int i = 0; i < h->count; i++) {
+    for(int i = 0; i < h->num_files; i++) {
         meta * cur = (h->files + i);
         if(cur->name[0] == '\0' || (cur->length == 0 && cur->offset == 0)){
             return i;
@@ -206,6 +246,16 @@ int find_first_empty(help * h) {
     return -1;
 }
 
+/*  find_gap
+    Finds the first gap in file_data that is of sufficient size.
+
+    ARGS(
+        size_t length:  the minimum size of the gap
+        help * h:       a pointer to the helper, already cast to the help struct. 
+    )
+    
+    RETURN: (meta*) a file, after which the is enough room to place at least *length* bytes of data. Null if there is none. 
+*/
 meta* find_gap(size_t length, help * h) {
     meta* after = NULL;
     if(get_zero(h) == 0){
@@ -217,7 +267,7 @@ meta* find_gap(size_t length, help * h) {
             return (h->files + tmp);
         }   
     }
-    for(int i = 0; i < h->count; i++){
+    for(int i = 0; i < h->num_files; i++){
         meta* cur = (h->files + i);
         if(cur->name[0] == '\0') {
             continue;
@@ -229,8 +279,48 @@ meta* find_gap(size_t length, help * h) {
     return after;
 }
 
+/*  find_next
+    Finds the file which is placed (in file_data) after a specified file. 
+
+    ARGS(
+        meta* cur:      the specified file.
+        help * h:       a pointer to the helper, already cast to the help struct. 
+    )
+    
+    RETURN: (meta*) the file which is following the specified file.
+*/
+meta * find_next(meta* cur, help * h){
+    int o = -1;
+    int l = INT32_MAX;
+    meta * best = NULL;
+    if(cur)
+        o = cur->offset+cur->length;
+    
+    for(int i = 0; i < h->num_files; i++) {
+        meta* incur = h->files + i;
+        if(incur->name[0] == '\0' || incur == cur) {
+            continue;
+        }
+        if(incur->offset < l && (int)incur->offset > (int)o) {
+            l = incur->offset;
+            best = incur;
+        }
+    }
+    return best;
+}
+
+/*  find_file
+    Finds the position of a file in directory name, given its name.
+
+    ARGS(
+        char* name:     the name of the file that it is looking for.
+        help * h:       a pointer to the helper, already cast to the help struct. 
+    )
+    
+    RETURN: (int) the offset from which the file can be access. E.G (h->files + find_file("test_file", h)). -1 if it can't be found. 
+*/
 int find_file(char * name, help * h) {
-    for(int i = 0; i < h->count; i++) {
+    for(int i = 0; i < h->num_files; i++) {
         if(strcmp((h->files + i)->name, name)==0) {
             return i;
         }
@@ -238,66 +328,53 @@ int find_file(char * name, help * h) {
     return -1;
 }
 
-void compute_hash_blocks(int s_offset, int end_offset, void * helper){
-    int num_blocks = floor((float)s_offset / 256.0f) - floor((float)(end_offset) / 256.0f)+1;
-    for(int i = 0; i < num_blocks; i++){
-        compute_hash_block(floor((float)s_offset / 256.0f) + i, helper);
-    }
-}
+/*  compute_hash_blocks
+    Computes all necesary hash blocks, given the start and end point of an edit.
 
-void write_meta(meta * m, size_t place, help* h){
-    memcpy(h->files + place, m, sizeof(meta));
-}
-
-int create_file(char * filename, size_t length, void * helper) {
-
-    help* h = (help*)helper;
-
-    if(find_file(filename, h) != -1){
-        return 1;
-    }
-
-    unsigned int noffset = 0; 
-    if(h->count != 0) {
-        meta* after = find_gap(length, helper);
-        if(after == NULL) {
-            if(get_free_space(h, NULL) >= length){
-                repack(helper);
-                meta* after = find_gap(length, helper);
-                noffset = after->offset + after->length;
-            } else {
-                return 2;
-            }
-        }
-        else {
-            noffset = after->offset + after->length;
-        }
-    }
-
-    int placement = find_first_empty(h);
-
-    meta* new = (meta*)malloc(sizeof(meta));
-        
-    strncpy(new->name, filename, 64);
-    new->length = length;
-    new->offset = noffset;
-
-
-    void * empty = calloc(1, new->length);
-
-    write_meta(new, placement, h);
+    ARGS(
+        int s_offset:   the offset, from the start of file_data, where the edit began.
+        int end_offset: the offset, from the start of file_data, where the edit ended.
+        void * helper:  the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
     
-    write_file(new->name, 0, new->length, empty, helper);    
-
-    compute_hash_tree(helper);
-    //compute_hash_blocks(new->offset, new->offset + new->length, helper);
-    free(empty);
-    free(new);
-
-
-    return 0;
+    RETURN: Nothing, is a void. 
+*/
+void compute_hash_blocks(int s_offset, int end_offset, void * helper){
+    int num_blocks = floor((float)s_offset / 256.0f) - floor((float)(end_offset) / 256.0f)+1;   //Finds the number of blocks we need to recompute
+    for(int i = 0; i < num_blocks; i++){
+        compute_hash_block(floor((float)s_offset / 256.0f) + i, helper);                        //Recomputes the required blocks. 
+    }
 }
 
+/*  write_meta
+    Writes an entry into directory_table.
+    Can overwrite existing placements.
+
+    ARGS(
+        meta* meta_to_write:    the entry to write into directory_table.
+        int place:              the placement, in directory_table, for the entry. 
+        help * h:               a pointer to the helper, already cast to the help struct. 
+    )
+    
+    RETURN: Nothing, is a void.
+*/
+void write_meta(meta * meta_to_write, size_t place, help* h){
+    memcpy(h->files + place, meta_to_write, sizeof(meta));
+}
+
+/*  remove_repack_replace
+    Creates a file of a specified length, with a specified name.
+    Stores the associated metadata in directory_table.
+    Zeros out the space allocated to it in file_data.
+
+    ARGS(
+        char* filename:     the name of the file to create.
+        size_t length:      the number of bytes the file needs allocated to it.   
+        void * helper:  the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: (int), 0 if successful, 1 if a file with that name already exists, 2 if there is not enough room for this file.
+*/
 void remove_repack_replace(meta* f, size_t length, void * helper){
     help* h = (help*)helper;
     void * temp = calloc(length, 1);
@@ -317,6 +394,58 @@ void remove_repack_replace(meta* f, size_t length, void * helper){
     
     memcpy(h->file_data + f->offset, temp, f->length);
     free(temp);
+}
+
+/*  create_file
+    Creates a file of a specified length, with a specified name.
+    Stores the associated metadata in directory_table.
+    Zeros out the space allocated to it in file_data.
+
+    ARGS(
+        char* filename:     the name of the file to create.
+        size_t length:      the number of bytes the file needs allocated to it.   
+        void * helper:  the helper variable, contains information about our files, as well as pointers to the actual data 
+    )
+    
+    RETURN: (int), 0 if successful, 1 if a file with that name already exists, 2 if there is not enough room for this file.
+*/
+int create_file(char * filename, size_t length, void * helper) {
+
+    help* h = (help*)helper;
+
+    if(find_file(filename, h) != -1) {
+        return 1;       //If the filename is taken.
+    }
+
+    unsigned int new_offset = 0; 
+    meta* after = find_gap(length, helper);
+    if(after == NULL) {     //If there isn't a gap big enough for this file, attempt to repack and retry.
+        if(get_free_space(h, NULL) >= length) {         //Checks if there is enough free space for this file.
+            repack(helper);
+            meta* after = find_gap(length, helper);
+            new_offset = after->offset + after->length;
+        } else {
+            return 2;       //If there's not enough free space
+        }
+    }
+    else {
+        new_offset = after->offset + after->length;
+    }
+
+    int placement = find_first_empty(h);
+
+    meta* new = (meta*)malloc(sizeof(meta));
+    strncpy(new->name, filename, 64);
+    new->length = length;
+    new->offset = new_offset;
+
+    write_meta(new, placement, h);    
+    memset(h->file_data + new->offset, 0, new->length);
+
+    compute_hash_tree(helper);
+    free(new);
+
+    return 0;
 }
 
 int resize_file(char * filename, size_t length, void * helper) {
@@ -344,26 +473,6 @@ int resize_file(char * filename, size_t length, void * helper) {
     compute_hash_tree(helper);
 
     return 0;
-}
-
-meta * find_next(meta* cur, help * h){
-    int o = -1;
-    int l = INT32_MAX;
-    meta * best = NULL;
-    if(cur)
-        o = cur->offset+cur->length;
-    
-    for(int i = 0; i < h->count; i++) {
-        meta* incur = h->files + i;
-        if(incur->name[0] == '\0' || incur == cur) {
-            continue;
-        }
-        if(incur->offset < l && (int)incur->offset > (int)o) {
-            l = incur->offset;
-            best = incur;
-        }
-    }
-    return best;
 }
 
 void repack(void * helper) {
