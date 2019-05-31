@@ -117,6 +117,7 @@ void * init_fs(char * file_data, char * directory_table, char * hash_data, int n
     Closes our fle system, frees all allocated memory, destorys all mutexes
 
     ARGS(
+        void * helper: Our helper variable, contains information about our files, as well as pointers to the actual data 
     )
     
     No return
