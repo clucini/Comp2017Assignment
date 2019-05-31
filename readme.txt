@@ -1,0 +1,1 @@
+Please run runtest.c as a user with bash execution privliages, runtest.c doesn't work without it.

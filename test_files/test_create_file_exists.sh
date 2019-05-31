@@ -1,0 +1,3 @@
+diff file_data test_create_file/file_data
+diff directory_table test_create_file/directory_table
+diff hash_data test_create_file/hash_data

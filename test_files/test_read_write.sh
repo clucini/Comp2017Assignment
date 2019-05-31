@@ -1,0 +1,3 @@
+diff file_data test_read_write/file_data
+diff directory_table test_read_write/directory_table
+diff hash_data test_read_write/hash_data

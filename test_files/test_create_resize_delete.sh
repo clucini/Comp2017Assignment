@@ -1,0 +1,3 @@
+diff file_data test_create_resize_delete/file_data
+diff directory_table test_create_resize_delete/directory_table
+diff hash_data test_create_resize_delete/hash_data
