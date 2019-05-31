@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <fuse.h>
-
+#include <errno.h>
 #include "myfilesystem.c"
 
 #define raw_helper fuse_get_context()->private_data
@@ -21,13 +21,17 @@ char * hash_data_file_name = NULL;
 int myfuse_getattr(const char * filename, struct stat * result) {
     memset(result, 0, sizeof(struct stat));
     help* h = ((help*)raw_helper);
-    
     if (strcmp(filename, "/") == 0) {
-        result->st_mode = S_IFREG;
-        int x = find_file((char*)filename++, h);
-        result->st_size = h->files[x].length;
-    } else {
-        result->st_mode = S_IFREG;
+        result->st_mode = S_IFDIR;
+	result->st_nlink = 2; 
+   } else {
+        int x = find_file((char*)++filename, h);
+	printf("%d\n", x);
+   	if(x == -1)
+		return -ENOENT;
+	result->st_mode = S_IFREG;
+	result->st_nlink = 1;
+        result->st_size = (h->files + x)->length;
     }
     return 0;
 }
@@ -41,17 +45,17 @@ int myfuse_readdir(const char * name, void * buf, fuse_fill_dir_t filler, off_t 
 }
 
 int myfuse_unlink(const char * filename){
-    delete_file((char*)filename++, raw_helper);
+    delete_file(((char*)filename)+1, raw_helper);
     return 0;
 }
 
 int myfuse_rename(const char * filename, const char * new_name){
-    rename_file((char*)filename++, (char*)new_name++, raw_helper);
-    return 0;
+    rename_file(((char*)filename)+1, (char*)new_name++, raw_helper);
+	    return 0;
 }
 
 int myfuse_truncate(const char * filename, off_t newsize){
-    resize_file((char*)filename++, newsize, raw_helper);
+    resize_file(((char*)filename)+1, newsize, raw_helper);
     return 0;
 }
 
@@ -59,12 +63,12 @@ int myfuse_open(const char * filename, struct fuse_file_info * fi){
     return 0;
 }
 int myfuse_read(const char * filename, char * buf, size_t length, off_t offset, struct fuse_file_info * fi){
-    read_file((char*)filename++, offset, length, buf, raw_helper);
+    read_file(((char*)filename)+1, offset, length, buf, raw_helper);
     return 0;
 }
 
 int myfuse_write(const char * filename, const char * buf, size_t length, off_t offset, struct fuse_file_info * fi){
-    write_file((char*)filename++, offset, length, (void*)buf, raw_helper);
+    write_file(((char*)filename)+1, offset, length, (void*)buf, raw_helper);
     return 0;
 }
 
@@ -82,7 +86,7 @@ void myfuse_destroy(void * something){
 }
 
 int myfuse_create(const char * filename, mode_t mode, struct fuse_file_info * fi){
-    create_file((char*)filename++, 10, 0);
+    create_file(((char*)filename)+1, 10, 0);
     return 0;
 }
 struct fuse_operations operations = {
